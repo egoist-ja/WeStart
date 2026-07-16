@@ -8,7 +8,7 @@
         <version>4.1.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.westart.ai</groupId>
+    <groupId>com.spark.ai</groupId>
     <artifactId>westart</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>westart</name>
@@ -27,7 +27,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
     </properties>
     <dependencies>
         <dependency>
