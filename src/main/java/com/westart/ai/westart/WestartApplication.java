@@ -12,6 +12,7 @@ public class WestartApplication {
         System.out.println("Westart Application Started");
         System.out.println("zxy test");
         System.out.println("zwc1.test");
+        System.out.println("zsh text");
     }
 
 }
