@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+ilink:
+  enabled: true
+  connect-timeout: 35000
+  read-timeout: 35000
+  max-retries: 3
+  heartbeat: true
+
+dashscope:
+  api-key: "sk-ws-H.EDXDDPE.S3zq.MEQCIFgbKSviIWu3UzE9GTtndZ20V0NcZOQw4100h3ft2GsvAiBDI4J6ADieWbgkOYqo4qjh2ShmmE-fOS1OtMHEu0j3bA"
+
+ai:
+  model: qwen-max
+  system-prompt: "你是一个微信助手，请用简短友好的中文回复。"
+
+bot:
+  auto-reply: true
+  batch:
+    enabled: true
+    buffer-timeout-ms: 2000
+    max-buffer-timeout-ms: 8000
+    keywords:
+      - no
+
+
+logging:
+  level:
+    com.westart.ai.westart: INFO
+  file:
+    name: logs/ilinkbot.log
