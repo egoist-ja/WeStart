@@ -1,6 +1,0 @@
-spring:
-  application:
-    name: westart
-  threads:
-    virtual:
-      enabled: true
