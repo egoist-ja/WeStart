@@ -2843,3 +2843,9 @@ Caused by: com.github.wechat.ilink.sdk.core.exception.ConnectFailedException: qr
 我记下来啦～
 2026-07-21T14:45:46.380+08:00  INFO 36052 --- [westart] [pool-2-thread-1] c.w.a.westart.service.MultimodalService  : 语音合成成功: 114811 bytes
 2026-07-21T14:45:47.921+08:00  INFO 36052 --- [westart] [pool-2-thread-2] c.w.ai.westart.service.ILinkBotService   : 语音回复已发送: 114811 bytes
+2026-07-21T14:51:20.800+08:00  INFO 36052 --- [westart] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-21T14:51:20.805+08:00  INFO 36052 --- [westart] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-07-21T14:51:20.809+08:00  INFO 36052 --- [westart] [SpringApplicationShutdownHook] c.w.ai.westart.service.ILinkBotService   : iLinkBot 服务关闭
+2026-07-21T14:51:20.809+08:00  INFO 36052 --- [westart] [SpringApplicationShutdownHook] c.github.wechat.ilink.sdk.ILinkClient    : closing ILinkClient
+2026-07-21T14:51:20.809+08:00  INFO 36052 --- [westart] [SpringApplicationShutdownHook] c.w.ai.westart.service.ILinkBotService   : 客户端已关闭
+2026-07-21T14:51:20.809+08:00  INFO 36052 --- [westart] [SpringApplicationShutdownHook] c.github.wechat.ilink.sdk.ILinkClient    : closing ILinkClient

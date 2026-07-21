@@ -166,18 +166,17 @@ public class MultimodalService {
             if (wavFile != null) {
                 String text = callAudioModel(wavFile.toAbsolutePath().toString());
                 if (!"语音识别失败".equals(text)) {
-                    String reply = generateAudioReply(userId, text);
                     learningService.addPreference(userId, "语音");
-                    learningService.recordConversation(userId, "[语音] " + text, reply);
-                    return reply;
+                    log.info("语音识别结果: {}", text);
+                    return text;
                 }
             }
 
-            return "TEXT:抱歉，我无法识别这段语音。";
+            return null;
 
         } catch (Exception e) {
             log.error("语音识别失败", e);
-            return "TEXT:抱歉，我无法识别这段语音。";
+            return null;
         } finally {
             if (wavFile != null) {
                 try { Files.deleteIfExists(wavFile); } catch (IOException ignored) {}

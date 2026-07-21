@@ -442,7 +442,14 @@ public class ILinkBotService {
                     log.info("处理语音消息: encode_type={}, playtime={}ms, sample_rate={}",
                             voice.getEncode_type(), voice.getPlaytime(), voice.getSample_rate());
                     byte[] voiceBytes = client.downloadVoiceFromMessageItem(item);
-                    result = multimodalService.analyzeAudio(userId, voiceBytes, "voice.silk");
+                    String transcription = multimodalService.analyzeAudio(userId, voiceBytes, "voice.silk");
+                    if (transcription != null) {
+                        log.info("语音识别结果: {}, 交给AI回复", transcription);
+                        String aiReply = aiService.chat(userId, transcription);
+                        result = "TEXT:" + aiReply;
+                    } else {
+                        result = "TEXT:抱歉，我无法识别这段语音。";
+                    }
                 }
                 else if (item.getVideo_item() != null) {
                     log.info("处理视频消息");
