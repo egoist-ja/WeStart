@@ -1,0 +1,304 @@
+{
+  "_type": "Project",
+  "_id": "ILINK_FLOW_PROJECT_01",
+  "name": "iLink 微信智能助手消息处理流程",
+  "ownedElements": [
+    {
+      "_type": "UMLModel",
+      "_id": "ILINK_FLOW_MODEL_01",
+      "_parent": { "$ref": "ILINK_FLOW_PROJECT_01" },
+      "name": "iLink Agent",
+      "ownedElements": [
+        {
+          "_type": "UMLActivity",
+          "_id": "ILINK_FLOW_ACTIVITY_01",
+          "_parent": { "$ref": "ILINK_FLOW_MODEL_01" },
+          "name": "用户消息与大模型回复流程",
+          "nodes": [
+            {
+              "_type": "UMLInitialNode",
+              "_id": "ILINK_NODE_00",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "开始"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_01",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "微信用户发送文本或图片"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_02",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "iLink SDK 轮询接收消息"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_03",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "原始消息进入全局消息队列"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_04",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "按 userId 路由到对应用户队列"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_05",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "用户虚拟线程收集同批消息（发送间隔不超过 5 秒）"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_06",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "提取文本并下载图片"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_07",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "组装多模态 List<Content>"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_08",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "调用 Qwen 多模态模型"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_09",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "获取大模型回复"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_10",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "iLink SDK 发送文本回复"
+            },
+            {
+              "_type": "UMLAction",
+              "_id": "ILINK_NODE_11",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "微信用户收到助手回复"
+            },
+            {
+              "_type": "UMLActivityFinalNode",
+              "_id": "ILINK_NODE_12",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "结束"
+            }
+          ],
+          "edges": [
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_01", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_00" }, "target": { "$ref": "ILINK_NODE_01" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_02", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_01" }, "target": { "$ref": "ILINK_NODE_02" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_03", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_02" }, "target": { "$ref": "ILINK_NODE_03" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_04", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_03" }, "target": { "$ref": "ILINK_NODE_04" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_05", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_04" }, "target": { "$ref": "ILINK_NODE_05" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_06", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_05" }, "target": { "$ref": "ILINK_NODE_06" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_07", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_06" }, "target": { "$ref": "ILINK_NODE_07" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_08", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_07" }, "target": { "$ref": "ILINK_NODE_08" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_09", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_08" }, "target": { "$ref": "ILINK_NODE_09" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_10", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_09" }, "target": { "$ref": "ILINK_NODE_10" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_11", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_10" }, "target": { "$ref": "ILINK_NODE_11" } },
+            { "_type": "UMLControlFlow", "_id": "ILINK_EDGE_12", "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" }, "source": { "$ref": "ILINK_NODE_11" }, "target": { "$ref": "ILINK_NODE_12" } }
+          ],
+          "ownedElements": [
+            {
+              "_type": "UMLActivityDiagram",
+              "_id": "ILINK_FLOW_DIAGRAM_01",
+              "_parent": { "$ref": "ILINK_FLOW_ACTIVITY_01" },
+              "name": "iLink 用户消息与大模型回复流程",
+              "ownedViews": [
+                {
+                  "_type": "UMLControlNodeView",
+                  "_id": "ILINK_VIEW_00",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_00" },
+                  "left": 518,
+                  "top": 24,
+                  "width": 24,
+                  "height": 24,
+                  "lineColor": "#263238",
+                  "fillColor": "#263238"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_01",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_01" },
+                  "left": 350,
+                  "top": 82,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#167A5B",
+                  "fillColor": "#E8F5E9",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_02",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_02" },
+                  "left": 350,
+                  "top": 166,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#1565C0",
+                  "fillColor": "#E3F2FD",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_03",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_03" },
+                  "left": 350,
+                  "top": 250,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#1565C0",
+                  "fillColor": "#E3F2FD",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_04",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_04" },
+                  "left": 350,
+                  "top": 334,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#1565C0",
+                  "fillColor": "#E3F2FD",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_05",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_05" },
+                  "left": 350,
+                  "top": 418,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#1565C0",
+                  "fillColor": "#E3F2FD",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_06",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_06" },
+                  "left": 350,
+                  "top": 502,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#1565C0",
+                  "fillColor": "#E3F2FD",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_07",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_07" },
+                  "left": 350,
+                  "top": 586,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#6A1B9A",
+                  "fillColor": "#F3E5F5",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_08",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_08" },
+                  "left": 350,
+                  "top": 670,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#6A1B9A",
+                  "fillColor": "#F3E5F5",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_09",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_09" },
+                  "left": 350,
+                  "top": 754,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#6A1B9A",
+                  "fillColor": "#F3E5F5",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_10",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_10" },
+                  "left": 350,
+                  "top": 838,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#167A5B",
+                  "fillColor": "#E8F5E9",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLActionView",
+                  "_id": "ILINK_VIEW_11",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_11" },
+                  "left": 350,
+                  "top": 922,
+                  "width": 360,
+                  "height": 52,
+                  "lineColor": "#167A5B",
+                  "fillColor": "#E8F5E9",
+                  "font": "Microsoft YaHei;13;0"
+                },
+                {
+                  "_type": "UMLControlNodeView",
+                  "_id": "ILINK_VIEW_12",
+                  "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" },
+                  "model": { "$ref": "ILINK_NODE_12" },
+                  "left": 516,
+                  "top": 1008,
+                  "width": 28,
+                  "height": 28,
+                  "lineColor": "#263238",
+                  "fillColor": "#FFFFFF"
+                },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_01", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_01" }, "tail": { "$ref": "ILINK_VIEW_00" }, "head": { "$ref": "ILINK_VIEW_01" }, "points": "530:48;530:82", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_02", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_02" }, "tail": { "$ref": "ILINK_VIEW_01" }, "head": { "$ref": "ILINK_VIEW_02" }, "points": "530:134;530:166", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_03", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_03" }, "tail": { "$ref": "ILINK_VIEW_02" }, "head": { "$ref": "ILINK_VIEW_03" }, "points": "530:218;530:250", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_04", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_04" }, "tail": { "$ref": "ILINK_VIEW_03" }, "head": { "$ref": "ILINK_VIEW_04" }, "points": "530:302;530:334", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_05", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_05" }, "tail": { "$ref": "ILINK_VIEW_04" }, "head": { "$ref": "ILINK_VIEW_05" }, "points": "530:386;530:418", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_06", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_06" }, "tail": { "$ref": "ILINK_VIEW_05" }, "head": { "$ref": "ILINK_VIEW_06" }, "points": "530:470;530:502", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_07", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_07" }, "tail": { "$ref": "ILINK_VIEW_06" }, "head": { "$ref": "ILINK_VIEW_07" }, "points": "530:554;530:586", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_08", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_08" }, "tail": { "$ref": "ILINK_VIEW_07" }, "head": { "$ref": "ILINK_VIEW_08" }, "points": "530:638;530:670", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_09", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_09" }, "tail": { "$ref": "ILINK_VIEW_08" }, "head": { "$ref": "ILINK_VIEW_09" }, "points": "530:722;530:754", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_10", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_10" }, "tail": { "$ref": "ILINK_VIEW_09" }, "head": { "$ref": "ILINK_VIEW_10" }, "points": "530:806;530:838", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_11", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_11" }, "tail": { "$ref": "ILINK_VIEW_10" }, "head": { "$ref": "ILINK_VIEW_11" }, "points": "530:890;530:922", "lineColor": "#455A64" },
+                { "_type": "UMLControlFlowView", "_id": "ILINK_EDGE_VIEW_12", "_parent": { "$ref": "ILINK_FLOW_DIAGRAM_01" }, "model": { "$ref": "ILINK_EDGE_12" }, "tail": { "$ref": "ILINK_VIEW_11" }, "head": { "$ref": "ILINK_VIEW_12" }, "points": "530:974;530:1008", "lineColor": "#455A64" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

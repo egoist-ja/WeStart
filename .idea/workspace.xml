@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="31dd1a24-98d6-474f-9e00-b670528cf9ea" name="更改" comment="测试分支提交">
+      <change beforePath="$PROJECT_DIR$/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Record" />
+        <option value="Interface" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="sonnet2" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;egoist-ja&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/egoist-ja/WeStart.git&quot;,
+    &quot;accountId&quot;: &quot;d94da8ce-9320-4d4f-bfac-993521bc1b53&quot;
+  }
+}</component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.703438828438114" />
+      <entry key="MS500" value="3.5984771793311525" />
+      <entry key="S2" value="4.5729987091037945" />
+      <entry key="S5" value="4.821802909824475" />
+      <entry key="S10" value="4.909613479042907" />
+      <entry key="S30" value="4.991108212379429" />
+      <entry key="S60" value="6.166917285842535" />
+      <entry key="M2" value="13.888108844209599" />
+      <entry key="M5" value="35.69092559452443" />
+      <entry key="M10" value="52.42035732800444" />
+      <entry key="M15" value="60.41862064814186" />
+      <entry key="M30" value="71.82932488975037" />
+      <entry key="H1" value="81.43313665890341" />
+      <entry key="H2" value="88.74557275582394" />
+      <entry key="H4" value="95.7258533285872" />
+      <entry key="D1" value="225.37252977466395" />
+      <entry key="W1" value="421.6122831294602" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="9.901708922303539E-227" />
+      <entry key="S2" value="3.1544782611041866E-57" />
+      <entry key="S5" value="2.509406482342098E-23" />
+      <entry key="S10" value="5.009397650758112E-12" />
+      <entry key="S30" value="1.7110514300497322E-4" />
+      <entry key="S60" value="0.013118766559619263" />
+      <entry key="M2" value="0.12505593333209647" />
+      <entry key="M5" value="0.7347811517627142" />
+      <entry key="M10" value="1.6401219693702729" />
+      <entry key="M15" value="2.2944969559955717" />
+      <entry key="M30" value="3.7953588096112516" />
+      <entry key="H1" value="5.690817624354463" />
+      <entry key="H2" value="7.406492040779153" />
+      <entry key="H4" value="9.535500166084688" />
+      <entry key="D1" value="50.728049596077334" />
+      <entry key="W1" value="103.8914680698754" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.6367229660334013" />
+      <entry key="MS500" value="3.5269544720214823" />
+      <entry key="S2" value="4.5434074943413885" />
+      <entry key="S5" value="4.808640624023091" />
+      <entry key="S10" value="4.902792826270984" />
+      <entry key="S30" value="4.98888877564946" />
+      <entry key="S60" value="6.176764280069379" />
+      <entry key="M2" value="14.003492454258117" />
+      <entry key="M5" value="36.40965600984376" />
+      <entry key="M10" value="54.04566375537175" />
+      <entry key="M15" value="62.700071098555696" />
+      <entry key="M30" value="75.61400925466036" />
+      <entry key="H1" value="87.11565259022775" />
+      <entry key="H2" value="96.14650248761137" />
+      <entry key="H4" value="105.25779818980203" />
+      <entry key="D1" value="276.09753616462166" />
+      <entry key="W1" value="525.5028228857988" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3GZ82vu6g56FOxS62Xtdug12S0i" />
+  <component name="ProjectViewState">
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.未命名.executor&quot;: &quot;Run&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;应用程序.GenerateWeatherJWT.executor&quot;: &quot;Run&quot;,
+    &quot;应用程序.WestartApplication.executor&quot;: &quot;Run&quot;
+  }
+}</component>
+  <component name="RunManager" selected="Spring Boot.WestartApplication">
+    <configuration name="WestartApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <envs>
+        <env name="API_HOST" value="nn5ctw2x5x.re.qweatherapi.com" />
+        <env name="DEEPSEEK_API_KEY" value="sk-304ba224072d47b8852caa54fbd57489" />
+        <env name="KID" value="C85DFUUTXP" />
+        <env name="PRIVATE_KEY" value="-----BEGIN PRIVATE KEY----- MC4CAQAwBQYDK2VwBCIEIHxC7ahQIU/ZltgqYQtSL9v+pJCVmL2Pyr3LRmy2k4pl -----END PRIVATE KEY----- " />
+        <env name="QWEN_API_KEY" value="sk-b3cbef3063954a7d93e4683ac5e5573c" />
+        <env name="SUB" value="4N8568ARFH" />
+        <env name="WORKSPACE_ID" value="ws-lbfjz632bt9mjfz2" />
+      </envs>
+      <option name="MAIN_CLASS_NAME" value="com.westart.ai.westart.WestartApplication" />
+      <module name="westart" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.westart.ai.westart.util.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="WestartApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <envs>
+        <env name="alg" value="EdDSA" />
+        <env name="kid" value="C85DFUUTXP" />
+        <env name="sub" value="4N8568ARFH" />
+      </envs>
+      <module name="westart" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.westart.ai.westart.WestartApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <list>
+      <item itemvalue="Spring Boot.WestartApplication" />
+      <item itemvalue="应用程序.WestartApplication" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="应用程序.WestartApplication" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.26222.65" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.26222.65" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="31dd1a24-98d6-474f-9e00-b670528cf9ea" name="更改" comment="" />
+      <created>1784167529032</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1784167529032</updated>
+    </task>
+    <task id="LOCAL-00001" summary="测试分支提交">
+      <option name="closed" value="true" />
+      <created>1784168839626</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1784168839626</updated>
+    </task>
+    <task id="LOCAL-00002" summary="测试分支提交">
+      <option name="closed" value="true" />
+      <created>1784619858346</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1784619858346</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$" />
+    </ignored-roots>
+    <MESSAGE value="测试分支提交" />
+    <option name="LAST_COMMIT_MESSAGE" value="测试分支提交" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
