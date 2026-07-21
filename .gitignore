@@ -1,6 +1,5 @@
 # IDE 配置
 .idea/
-*.xml
 
 # 编译产物
 target/
