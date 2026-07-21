@@ -11,7 +11,7 @@ public class WestartApplication {
         SpringApplication.run(WestartApplication.class, args);
         System.out.println("Westart Application Started");
         System.out.println("zxy test");
-        System.out.println("zwc.test");
+        System.out.println("zwc1.test");
     }
 
 }
