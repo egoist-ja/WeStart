@@ -10,6 +10,14 @@ import java.util.Base64;
 
 public class GenerateWeatherJWT {
 
+    /**
+     * 生成天气JWT验证
+     * @return
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeySpecException
+     * @throws InvalidKeyException
+     * @throws SignatureException
+     */
     public static String generateJWT() throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
         // Private key
         String privateKeyString = System.getenv("PRIVATE_KEY");

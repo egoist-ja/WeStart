@@ -19,7 +19,6 @@ import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import dev.langchain4j.service.V;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -356,7 +355,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                     ChatResponse voiceResponse = voiceGenerator.generateVoice(
                             List.of(TextContent.from(reply)));
                     Audio audio = extractGeneratedAudio(voiceResponse);
-                    sendGeneratedVoice(userId, audio, reply);
+                    sendGeneratedVoice(userId, audio);
                 } else {
                     sendMessage(userId, reply);
                 }
@@ -400,9 +399,8 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
      *
      * @param userId 微信用户ID
      * @param audio 语音模型返回的完整音频
-     * @param transcriptText 音频对应的回答文本
      */
-    private void sendGeneratedVoice(String userId, Audio audio, String transcriptText) {
+    private void sendGeneratedVoice(String userId, Audio audio) {
         byte[] voiceData = prepareGeneratedAudioFile(
                 resolveGeneratedAudioBytes(audio), audio.mimeType());
         try {
@@ -411,11 +409,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                     voiceData,
                     GENERATED_VOICE_FILE_NAME,
                     null);
-            LOGGER.info(
-                    "微信语音文件发送成功，userId={}，voiceSize={}，transcriptLength={}",
-                    userId,
-                    voiceData.length,
-                    transcriptText.length());
+            LOGGER.info("微信语音文件发送成功，userId={}，voiceSize={}", userId, voiceData.length);
         } catch (IOException | ILinkException exception) {
             throw new IllegalStateException("微信语音文件发送失败，userId=" + userId, exception);
         }
