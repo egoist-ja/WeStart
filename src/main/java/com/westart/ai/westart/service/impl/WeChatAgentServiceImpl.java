@@ -8,6 +8,7 @@ import com.westart.ai.westart.DTO.MessageContent;
 import com.westart.ai.westart.DTO.SegmentResult;
 import com.westart.ai.westart.DTO.batch.SegmentResultBatch;
 import com.westart.ai.westart.service.WeChatAgentService;
+import com.westart.ai.westart.service.ImageStoreService;
 import com.westart.ai.westart.service.ai.ImageGenerator;
 import com.westart.ai.westart.service.ai.VoiceGenerator;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
@@ -76,6 +77,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
     private final WeChatMessageRouter weChatMessageRouter;
     private final OkHttpClient okHttpClient;
     private final ExecutorService wechatUserMessageExecutor;
+    private final ImageStoreService imageStoreService;
     private final BlockingQueue<IncomingMessage> globalMessageQueue =
             new ArrayBlockingQueue<>(GLOBAL_QUEUE_CAPACITY); //全局消息队列
     private final ConcurrentHashMap<String, BlockingQueue<IncomingMessage>> userMessageQueues =
@@ -363,9 +365,12 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
             case IMAGE -> {
                 List<Content> imageContents = prepareImageGenerationContents(
                         segmentContents,
-                        segmentResult.context());
+                        segmentResult.context(),
+                        userId);
                 List<Image> images = imageGenerator.generateImage(imageContents);
                 sendGeneratedImages(userId, images);
+                // 生成并发送成功后清理暂存图片
+                imageStoreService.deleteAll(userId);
             }
             case VIDEO -> LOGGER.info("暂不处理微信视频生成请求，userId={}", userId);
         }
@@ -628,16 +633,34 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
      */
     private List<Content> prepareImageGenerationContents(
             List<Content> segmentContents,
-            String context) {
-        if (isBlank(context)) {
-            return List.copyOf(segmentContents);
+            String context,
+            String userId) {
+        List<Content> imageContents = new ArrayList<>(segmentContents.size() + 2);
+
+        if (!isBlank(context)) {
+            imageContents.add(TextContent.from(context));
         }
 
-        List<Content> imageContents = new ArrayList<>(segmentContents.size() + 1);
-        imageContents.add(TextContent.from(context));
-        segmentContents.stream()
-                .filter(ImageContent.class::isInstance)
-                .forEach(imageContents::add);
+        boolean hasCurrentImage = false;
+        for (Content content : segmentContents) {
+            if (content instanceof ImageContent) {
+                imageContents.add(content);
+                hasCurrentImage = true;
+            }
+        }
+
+        // 跨批次补充：有编辑上下文但当前批次无图片 → 从磁盘加载最近暂存的图片
+        if (!isBlank(context) && !hasCurrentImage) {
+            Optional<ImageStoreService.ImageData> saved = imageStoreService.readLatestAsBase64(userId);
+            if (saved.isPresent()) {
+                ImageStoreService.ImageData imageData = saved.get();
+                imageContents.add(ImageContent.from(imageData.base64Data(), imageData.mimeType()));
+                LOGGER.info("跨批次加载暂存图片，userId={}", userId);
+            } else {
+                LOGGER.info("未找到暂存图片，userId={}，继续仅使用文本描述生成", userId);
+            }
+        }
+
         return List.copyOf(imageContents);
     }
 
@@ -801,7 +824,10 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                 continue;
             }
             if (item.getImage_item() != null) {
-                return buildImageContent(message.getFrom_user_id(), item);
+                String messageId = message.getMessage_id() != null
+                        ? message.getMessage_id().toString()
+                        : "unknown";
+                return buildImageContent(message.getFrom_user_id(), messageId, item);
             }
             if (item.getVoice_item() != null) {
                 return buildVoiceContent(message.getFrom_user_id(), item);
@@ -848,7 +874,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
      * @param item 包含图片信息的消息项
      * @return 图片模型内容；下载失败或图片无效时返回空
      */
-    private Optional<Content> buildImageContent(String userId, MessageItem item) {
+    private Optional<Content> buildImageContent(String userId, String messageId, MessageItem item) {
         try {
             byte[] imageBytes = iLinkClient.downloadImageFromMessageItem(item);
             if (imageBytes == null || imageBytes.length == 0) {
@@ -857,6 +883,14 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
             }
             String mimeType = detectImageMimeType(imageBytes);
             String base64Data = Base64.getEncoder().encodeToString(imageBytes);
+
+            // 保存到磁盘，失败不影响当前批次处理
+            try {
+                imageStoreService.save(userId, imageBytes, mimeType);
+            } catch (RuntimeException e) {
+                LOGGER.warn("微信图片暂存失败，userId={}，不影响当前批次处理", userId, e);
+            }
+
             LOGGER.info("微信图片下载成功，userId={}，imageSize={}", userId, imageBytes.length);
             return Optional.of(ImageContent.from(base64Data, mimeType));
         } catch (IOException | ILinkException | IllegalArgumentException exception) {
