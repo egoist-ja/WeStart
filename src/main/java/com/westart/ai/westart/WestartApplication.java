@@ -12,6 +12,7 @@ public class WestartApplication {
         System.out.println("Westart Application Started");
         System.out.println("ckw test");
         System.out.println("zxy test");
+        System.out.println("lyh test");
     }
 
 }
