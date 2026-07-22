@@ -15,10 +15,10 @@ import com.westart.ai.westart.service.ai.WeChatMessageRouter;
 import com.westart.ai.westart.service.domain.RouteType;
 import dev.langchain4j.data.audio.Audio;
 import dev.langchain4j.data.image.Image;
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
-import dev.langchain4j.model.chat.response.ChatResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -34,14 +34,9 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -285,7 +280,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
             List<MessageContent> messageContents = buildBatchContents(batchMessages);
             if (messageContents.isEmpty()) {
                 if (containsVoice) {
-                    throw new IllegalStateException("语音消息未包含可用的转写内容");
+                    sendMessage(userId,"语音消息未包含可用的转写内容呢,再试一遍吧？");
                 }
                 LOGGER.info("微信消息批次不包含可处理内容，userId={}", userId);
                 return;
@@ -329,7 +324,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                 .map(WeixinMessage::getItem_list)
                 .filter(itemList -> itemList != null && !itemList.isEmpty())
                 .flatMap(List::stream)
-                .filter(item -> item != null)
+                .filter(Objects::nonNull)
                 .anyMatch(item -> item.getVoice_item() != null);
     }
 
@@ -352,9 +347,8 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
             case CHAT -> {
                 String reply = wechatAssistant.reply(prepareModelContents(segmentContents));
                 if (replyWithVoice) {
-                    ChatResponse voiceResponse = voiceGenerator.generateVoice(
-                            List.of(TextContent.from(reply)));
-                    Audio audio = extractGeneratedAudio(voiceResponse);
+                    AiMessage voiceMessage = voiceGenerator.generateVoice(reply);
+                    Audio audio = extractGeneratedAudio(voiceMessage);
                     sendGeneratedVoice(userId, audio);
                 } else {
                     sendMessage(userId, reply);
@@ -374,15 +368,14 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
     /**
      * 从LangChain4j模型响应属性中提取生成的第一个音频。
      *
-     * @param response 语音模型完整响应
+     * @param aiMessage 语音模型返回的消息
      * @return 语音模型生成的音频
      */
-    private Audio extractGeneratedAudio(ChatResponse response) {
-        if (response == null || response.aiMessage() == null) {
+    private Audio extractGeneratedAudio(AiMessage aiMessage) {
+        if (aiMessage == null) {
             throw new IllegalStateException("语音模型未返回有效响应");
         }
-        Object generatedAudios = response.aiMessage()
-                .attributes()
+        Object generatedAudios = aiMessage.attributes()
                 .get(GENERATED_AUDIOS_ATTRIBUTE);
         if (!(generatedAudios instanceof List<?> audioList) || audioList.isEmpty()) {
             throw new IllegalStateException("语音模型响应中不包含生成音频");
