@@ -73,4 +73,25 @@ public class ModelConfig {
                         .build())
                 .build();
     }
+
+    /**
+     * 语音识别模型
+     * @return
+     */
+    @Bean
+    public QwenChatModel audioDetectModel(){
+        QwenChatRequestParameters.AsrOptions asrOptions =
+                QwenChatRequestParameters.AsrOptions.builder()
+                        .language("zh")
+                        .enableItn(true)
+                        .build();
+        return QwenChatModel.builder()
+                .apiKey(System.getenv("QWEN_API_KEY"))
+                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
+                .modelName("qwen3-asr-flash")
+                .defaultRequestParameters(QwenChatRequestParameters.builder()
+                        .asrOptions(asrOptions)
+                        .build())
+                .build();
+    }
 }

@@ -1,7 +1,9 @@
 package com.westart.ai.westart.service.ai;
 
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.spring.AiService;
 import dev.langchain4j.service.spring.AiServiceWiringMode;
 
@@ -20,6 +22,6 @@ public interface VoiceGenerator {
      * @param contents 当前用户消息批次
      * @return 语音生成结果
      */
-    ChatResponse generateVoice(List<Content> contents);
+    AiMessage generateVoice(@UserMessage String contents);
 
 }
