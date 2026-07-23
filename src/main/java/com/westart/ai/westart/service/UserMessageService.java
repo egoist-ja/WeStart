@@ -5,19 +5,12 @@ import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import java.util.List;
 
 /**
- * 微信智能体业务服务。
+ * 用户消息处理服务。
  */
-public interface WeChatAgentService {
+public interface UserMessageService {
 
     /**
-     * 发起微信扫码登录。
-     *
-     * @return 可用于渲染二维码的内容
-     */
-    String userLogin();
-
-    /**
-     * 向已建立会话上下文的用户发送消息。
+     * 向指定微信用户发送文本消息。
      *
      * @param userId 微信用户ID
      * @param content 消息内容
@@ -31,5 +24,4 @@ public interface WeChatAgentService {
      * @param batchMessages 完成防抖收集的原始微信消息
      */
     void processMessageBatch(String userId, List<WeixinMessage> batchMessages);
-
 }
