@@ -1,6 +1,5 @@
-package com.westart.ai.westart.service.impl;
+package com.westart.ai.westart.service.tool;
 
-import com.westart.ai.westart.service.WeatherService;
 import com.westart.ai.westart.util.GenerateWeatherJWT;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -23,9 +22,9 @@ import java.security.spec.InvalidKeySpecException;
 
 @Service
 @RequiredArgsConstructor
-public class WeatherServiceImpl implements WeatherService {
+public class WeatherService{
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WeatherServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WeatherService.class);
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;
 
@@ -40,9 +39,8 @@ public class WeatherServiceImpl implements WeatherService {
         return value == null || value.isBlank() ? defaultValue : value;
     }
 
-    @Override
     @Tool(value="当用户需要查询某个城市的实时天气时，调用该工具，province表示省份，cityName为城市名，"+
-        "如果用户缺少了省份或城市名，则不调用该方法，并提示用户明确具体的省份和城市")
+            "如果用户缺少了省份或城市名，则不调用该方法，并提示用户明确具体的省份和城市")
     public String queryWeatherInfo(String province,String cityName) {
         try {
             String locationId = queryCityId(province,cityName);

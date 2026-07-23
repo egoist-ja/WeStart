@@ -1,8 +1,6 @@
 package com.westart.ai.westart.controller;
 
-import com.westart.ai.westart.service.WeatherService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
