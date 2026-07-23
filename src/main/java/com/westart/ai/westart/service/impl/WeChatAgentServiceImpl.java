@@ -13,6 +13,7 @@ import com.westart.ai.westart.service.ai.VoiceGenerator;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
 import com.westart.ai.westart.service.ai.WeChatMessageRouter;
 import com.westart.ai.westart.service.domain.RouteType;
+import com.westart.ai.westart.util.FileFormatConverter;
 import dev.langchain4j.data.audio.Audio;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.Content;
@@ -810,6 +811,9 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                 LOGGER.info("忽略微信视频消息，userId={}", message.getFrom_user_id());
                 return Optional.empty();
             }
+            if (item.getFile_item() != null) {
+                return handleFileMessage(message.getFrom_user_id(), item);
+            }
         }
 
         LOGGER.info(
@@ -839,6 +843,67 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                 userId,
                 normalizedTranscription.length());
         return Optional.of(TextContent.from(normalizedTranscription));
+    }
+
+    /**
+     * 处理微信文件消息：下载文件，格式转换，发送回用户。
+     */
+    private Optional<Content> handleFileMessage(String userId, MessageItem item) {
+        String fileName = item.getFile_item().getFile_name();
+        if (fileName == null) {
+            return Optional.empty();
+        }
+
+        String ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+        String mime = switch (ext) {
+            case "pdf" -> "application/pdf";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "mp3" -> "audio/mpeg";
+            case "m4a" -> "audio/mp4";
+            case "wav" -> "audio/wav";
+            default -> null;
+        };
+        if (mime == null) {
+            LOGGER.info("不支持转换的文件类型，userId={}，fileName={}", userId, fileName);
+            return Optional.empty();
+        }
+
+        try {
+            byte[] fileData = iLinkClient.downloadFileFromMessageItem(item);
+            if (fileData == null || fileData.length == 0) {
+                return Optional.empty();
+            }
+
+            byte[] result = null;
+            String resultFileName = null;
+            String resultMime = null;
+
+            if ("application/pdf".equals(mime)) {
+                result = FileFormatConverter.toDocx(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".docx";
+                resultMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mime)) {
+                result = FileFormatConverter.toPdf(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".pdf";
+                resultMime = "application/pdf";
+            } else if (mime.startsWith("audio/")) {
+                result = FileFormatConverter.toWav(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".wav";
+                resultMime = "audio/wav";
+            }
+
+            if (result != null && result.length > 0 && resultFileName != null) {
+                iLinkClient.sendFile(userId, result, resultFileName, null);
+                LOGGER.info("文件转换成功并发送，userId={}，原始文件={}，目标文件={}，大小={}字节",
+                        userId, fileName, resultFileName, result.length);
+            } else {
+                LOGGER.warn("文件转换结果为空，userId={}，fileName={}，resultMime={}", userId, fileName, resultMime);
+                iLinkClient.sendText(userId, "文件转换失败，请检查文件内容后重试。");
+            }
+        } catch (Exception e) {
+            LOGGER.error("文件处理失败，userId={}，fileName={}", userId, fileName, e);
+        }
+        return Optional.empty();
     }
 
     /**
