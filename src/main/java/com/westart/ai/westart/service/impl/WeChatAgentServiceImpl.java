@@ -13,7 +13,7 @@ import com.westart.ai.westart.service.ai.VoiceGenerator;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
 import com.westart.ai.westart.service.ai.WeChatMessageRouter;
 import com.westart.ai.westart.service.domain.RouteType;
-import com.westart.ai.westart.util.FileFormatConverter;
+import com.westart.ai.westart.service.FileFormatService;
 import dev.langchain4j.data.audio.Audio;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.Content;
@@ -75,6 +75,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
     private final ImageGenerator imageGenerator; //图片生成
     private final VoiceGenerator voiceGenerator; //语音合成
     private final WeChatMessageRouter weChatMessageRouter;
+    private final FileFormatService fileFormatService;
     private final OkHttpClient okHttpClient;
     private final ExecutorService wechatUserMessageExecutor;
     private final BlockingQueue<IncomingMessage> globalMessageQueue =
@@ -879,15 +880,15 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
             String resultMime = null;
 
             if ("application/pdf".equals(mime)) {
-                result = FileFormatConverter.toDocx(fileData, mime);
+                result = fileFormatService.toDocx(fileData, mime);
                 resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".docx";
                 resultMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
             } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mime)) {
-                result = FileFormatConverter.toPdf(fileData, mime);
+                result = fileFormatService.toPdf(fileData, mime);
                 resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".pdf";
                 resultMime = "application/pdf";
             } else if (mime.startsWith("audio/")) {
-                result = FileFormatConverter.toWav(fileData, mime);
+                result = fileFormatService.toWav(fileData, mime);
                 resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".wav";
                 resultMime = "audio/wav";
             }

@@ -11,7 +11,7 @@ import java.util.List;
 @AiService(
     wiringMode= AiServiceWiringMode.EXPLICIT,
     chatModel="textAssistantModel",
-    tools={"weatherServiceImpl"}
+    tools={"weatherServiceImpl", "fileFormatServiceImpl"}
 )
 public interface WeChatAssistant {
 

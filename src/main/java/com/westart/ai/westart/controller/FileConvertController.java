@@ -1,6 +1,7 @@
 package com.westart.ai.westart.controller;
 
-import com.westart.ai.westart.util.FileFormatConverter;
+import com.westart.ai.westart.service.FileFormatService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +16,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/convert")
+@RequiredArgsConstructor
 public class FileConvertController {
+
+    private final FileFormatService fileFormatService;
 
     @PostMapping
     public ResponseEntity<?> convert(
@@ -52,17 +56,17 @@ public class FileConvertController {
 
             switch (target) {
                 case "wav" -> {
-                    result = FileFormatConverter.toWav(file.getBytes(), sourceMime);
+                    result = fileFormatService.toWav(file.getBytes(), sourceMime);
                     resultMime = "audio/wav";
                     resultExt = ".wav";
                 }
                 case "pdf" -> {
-                    result = FileFormatConverter.toPdf(file.getBytes(), sourceMime);
+                    result = fileFormatService.toPdf(file.getBytes(), sourceMime);
                     resultMime = "application/pdf";
                     resultExt = ".pdf";
                 }
                 case "docx" -> {
-                    result = FileFormatConverter.toDocx(file.getBytes(), sourceMime);
+                    result = fileFormatService.toDocx(file.getBytes(), sourceMime);
                     resultMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
                     resultExt = ".docx";
                 }
