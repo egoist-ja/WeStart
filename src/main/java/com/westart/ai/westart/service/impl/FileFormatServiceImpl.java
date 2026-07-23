@@ -282,7 +282,7 @@ public class FileFormatServiceImpl implements FileFormatService {
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            throw new IOException("M4A解码失败", e);
+            throw new IOException("抱歉，M4A解码失败", e);
         } finally {
             deleteFile(tmp);
         }

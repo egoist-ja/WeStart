@@ -897,6 +897,7 @@ public class WeChatAgentServiceImpl implements WeChatAgentService {
                 iLinkClient.sendFile(userId, result, resultFileName, null);
                 LOGGER.info("文件转换成功并发送，userId={}，原始文件={}，目标文件={}，大小={}字节",
                         userId, fileName, resultFileName, result.length);
+
             } else {
                 LOGGER.warn("文件转换结果为空，userId={}，fileName={}，resultMime={}", userId, fileName, resultMime);
                 iLinkClient.sendText(userId, "文件转换失败，请检查文件内容后重试。");
