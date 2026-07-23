@@ -9,6 +9,7 @@ import com.westart.ai.westart.DTO.SegmentResult;
 import com.westart.ai.westart.service.ImageGenerateService;
 import com.westart.ai.westart.service.MessageRouteService;
 import com.westart.ai.westart.service.UserMessageService;
+import com.westart.ai.westart.service.FileFormatService;
 import com.westart.ai.westart.service.VoiceGenerateService;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
 import com.westart.ai.westart.service.domain.RouteType;
@@ -47,6 +48,7 @@ public class UserMessageServiceImpl implements UserMessageService {
     private final MessageRouteService messageRouteService;
     private final ImageGenerateService imageGenerateService;
     private final VoiceGenerateService voiceGenerateService;
+    private final FileFormatService fileFormatService;
 
     /**
      * 向指定微信用户发送文本消息。
@@ -235,6 +237,10 @@ public class UserMessageServiceImpl implements UserMessageService {
                 log.info("忽略微信视频消息，userId={}", message.getFrom_user_id());
                 return Optional.empty();
             }
+            if (item.getFile_item() != null) {
+                handleFileMessage(message.getFrom_user_id(), item);
+                return Optional.empty();
+            }
         }
 
         log.info(
@@ -242,6 +248,66 @@ public class UserMessageServiceImpl implements UserMessageService {
                 message.getFrom_user_id(),
                 message.getMessage_id());
         return Optional.empty();
+    }
+
+    /**
+     * 处理微信文件消息：下载文件，格式转换，发送回用户。
+     */
+    private void handleFileMessage(String userId, MessageItem item) {
+        String fileName = item.getFile_item().getFile_name();
+        if (fileName == null) {
+            return;
+        }
+
+        String ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+        String mime = switch (ext) {
+            case "pdf" -> "application/pdf";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "mp3" -> "audio/mpeg";
+            case "m4a" -> "audio/mp4";
+            case "wav" -> "audio/wav";
+            default -> null;
+        };
+        if (mime == null) {
+            log.info("不支持转换的文件类型，userId={}，fileName={}", userId, fileName);
+            return;
+        }
+
+        try {
+            byte[] fileData = iLinkClient.downloadFileFromMessageItem(item);
+            if (fileData == null || fileData.length == 0) {
+                return;
+            }
+
+            byte[] result = null;
+            String resultFileName = null;
+            String resultMime = null;
+
+            if ("application/pdf".equals(mime)) {
+                result = fileFormatService.toDocx(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".docx";
+                resultMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mime)) {
+                result = fileFormatService.toPdf(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".pdf";
+                resultMime = "application/pdf";
+            } else if (mime.startsWith("audio/")) {
+                result = fileFormatService.toWav(fileData, mime);
+                resultFileName = fileName.replaceAll("\\.[^.]+$", "") + ".wav";
+                resultMime = "audio/wav";
+            }
+
+            if (result != null && result.length > 0 && resultFileName != null) {
+                iLinkClient.sendFile(userId, result, resultFileName, null);
+                log.info("文件转换成功并发送，userId={}，原始文件={}，目标文件={}，大小={}字节",
+                        userId, fileName, resultFileName, result.length);
+            } else {
+                log.warn("文件转换结果为空，userId={}，fileName={}", userId, fileName);
+                iLinkClient.sendText(userId, "文件转换失败，请检查文件内容后重试。");
+            }
+        } catch (Exception e) {
+            log.error("文件处理失败，userId={}，fileName={}", userId, fileName, e);
+        }
     }
 
     /**
