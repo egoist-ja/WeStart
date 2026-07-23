@@ -4,3 +4,8 @@ spring:
   threads:
     virtual:
       enabled: true
+
+app:
+  temp:
+    images:
+      dir: ./temp/images
