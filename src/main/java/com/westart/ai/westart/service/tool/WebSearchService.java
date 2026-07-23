@@ -1,6 +1,5 @@
-package com.westart.ai.westart.service.impl;
+package com.westart.ai.westart.service.tool;
 
-import com.westart.ai.westart.service.WebSearchService;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +26,9 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class WebSearchServiceImpl implements WebSearchService {
+public class WebSearchService{
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebSearchServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebSearchService.class);
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
     private static final DateTimeFormatter SEARCH_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -42,7 +41,6 @@ public class WebSearchServiceImpl implements WebSearchService {
     private final ObjectMapper objectMapper;
     private final Environment environment;
 
-    @Override
     @Tool(value = """
             当用户的问题依赖互联网实时信息时调用该工具。
 
