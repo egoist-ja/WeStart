@@ -1,8 +1,7 @@
 package com.westart.ai.westart.service;
 
-import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
-
-import java.util.List;
+import com.github.wechat.ilink.sdk.core.login.LoginStatus;
+import com.westart.ai.westart.DTO.LoginSessionResult;
 
 /**
  * 微信智能体业务服务。
@@ -10,26 +9,34 @@ import java.util.List;
 public interface WeChatAgentService {
 
     /**
-     * 发起微信扫码登录。
+     * 创建独立微信客户端会话并发起扫码登录。
      *
-     * @return 可用于渲染二维码的内容
+     * @return 登录会话标识及二维码内容
      */
-    String userLogin();
+    LoginSessionResult userLogin();
+
+    /**
+     * 获取指定微信客户端会话的登录状态。
+     *
+     * @param sessionId 登录会话唯一标识
+     * @return 登录状态
+     */
+    LoginStatus getLoginStatus(String sessionId);
+
+    /**
+     * 关闭指定微信客户端会话。
+     *
+     * @param sessionId 登录会话唯一标识
+     */
+    void logout(String sessionId);
 
     /**
      * 向已建立会话上下文的用户发送消息。
      *
+     * @param sessionId iLink客户端会话ID
      * @param userId 微信用户ID
      * @param content 消息内容
      */
-    void sendMessage(String userId, String content);
-
-    /**
-     * 解析并处理指定用户的完整消息批次。
-     *
-     * @param userId 微信用户ID
-     * @param batchMessages 完成防抖收集的原始微信消息
-     */
-    void processMessageBatch(String userId, List<WeixinMessage> batchMessages);
+    void sendMessage(String sessionId, String userId, String content);
 
 }

@@ -10,9 +10,24 @@ import java.util.List;
 public interface UserThreadService {
 
     /**
-     * 接收iLink SDK拉取到的消息，并按用户ID异步调度。
+     * 接收指定iLink客户端拉取到的消息并放入对应会话队列。
      *
+     * @param sessionId 会话ID
      * @param messages iLink拉取到的消息集合
      */
-    void handleMessages(List<WeixinMessage> messages);
+    void handleMessages(String sessionId, List<WeixinMessage> messages);
+
+    /**
+     * 为指定会话启动独立的消息处理虚拟线程。
+     *
+     * @param sessionId 会话ID
+     */
+    void startSession(String sessionId);
+
+    /**
+     * 停止指定会话的消息处理任务。
+     *
+     * @param sessionId 会话ID
+     */
+    void stopSession(String sessionId);
 }

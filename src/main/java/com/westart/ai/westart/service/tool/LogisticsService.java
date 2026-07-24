@@ -1,6 +1,5 @@
-package com.westart.ai.westart.service.impl;
+package com.westart.ai.westart.service.tool;
 
-import com.westart.ai.westart.service.LogisticsService;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
 import okhttp3.HttpUrl;
@@ -16,14 +15,13 @@ import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
-public class LogisticsServiceImpl implements LogisticsService {
+public class LogisticsService{
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LogisticsServiceImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LogisticsService.class);
     private static final String UAPI_BASE_URL = "uapis.cn";
 
     private final OkHttpClient okHttpClient;
 
-    @Override
     @Tool(value = "当用户需要查询快递物流信息时调用该工具。" +
         "trackingNumber表示快递单号（必填，通常是一串10-20位的数字或字母数字组合），" +
         "carrierCode表示快递公司编码（选填，不填则系统自动识别快递公司），" +

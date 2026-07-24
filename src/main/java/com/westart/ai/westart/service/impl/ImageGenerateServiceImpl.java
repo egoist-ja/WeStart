@@ -36,17 +36,18 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
 
     private final ImageGenerator imageGenerator;
     private final OkHttpClient okHttpClient;
-    private final ILinkClient iLinkClient;
 
     /**
      * 根据消息内容生成图片，并将生成结果发送给指定微信用户。
      *
+     * @param client 当前消息所属的iLink客户端
      * @param userId 微信用户ID
      * @param contents 当前图片任务引用的原始消息内容
      * @param context 路由模型补充的图片生成描述
      */
     @Override
     public void generateAndSendImages(
+            ILinkClient client,
             String userId,
             List<Content> contents,
             String context) {
@@ -59,7 +60,7 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
 
         List<Content> imageContents = prepareImageGenerationContents(contents, context);
         List<Image> images = imageGenerator.generateImage(imageContents);
-        sendGeneratedImages(userId, images);
+        sendGeneratedImages(client, userId, images);
     }
 
     /**
@@ -87,10 +88,14 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
     /**
      * 将图片模型返回的全部图片发送给微信用户。
      *
+     * @param client 当前消息所属的iLink客户端
      * @param userId 微信用户ID
      * @param images 图片生成结果
      */
-    private void sendGeneratedImages(String userId, List<Image> images) {
+    private void sendGeneratedImages(
+            ILinkClient client,
+            String userId,
+            List<Image> images) {
         if (images == null || images.isEmpty()) {
             throw new IllegalStateException("图片生成模型未返回图片");
         }
@@ -101,7 +106,7 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
                     + (index + 1)
                     + GENERATED_IMAGE_FILE_EXTENSION;
             try {
-                iLinkClient.sendImage(userId, imageBytes, fileName, null);
+                client.sendImage(userId, imageBytes, fileName, null);
                 LOGGER.info(
                         "微信生成图片发送成功，userId={}，imageIndex={}，imageSize={}",
                         userId,

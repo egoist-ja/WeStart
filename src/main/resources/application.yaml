@@ -9,3 +9,6 @@ app:
   temp:
     images:
       dir: ./temp/images
+websearch:
+  api-key: ${UAPI_KEY:}
+  api-url: ${UAPI_SEARCH_API_URL:https://uapis:cn/api/v1/search/aggregate}
