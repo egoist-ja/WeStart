@@ -20,7 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 
-@Service
+@Service("weatherServiceImpl")
 @RequiredArgsConstructor
 public class WeatherService{
 

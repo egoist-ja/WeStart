@@ -50,9 +50,9 @@ public class LogisticsServiceImpl implements LogisticsService {
                     carrierCode == null || carrierCode.isBlank() ? "自动识别" : carrierCode,
                     phone == null || phone.isBlank() ? "未提供" : phone);
 
-            String apiKey = System.getenv("UAPI_KEY");
+            String apiKey = System.getenv("UAPIS_API_KEY");
             if (apiKey == null || apiKey.isBlank()) {
-                throw new IllegalStateException("环境变量 UAPI_KEY 未设置");
+                throw new IllegalStateException("环境变量 UAPIS_API_KEY 未设置");
             }
 
             Request request = new Request.Builder()

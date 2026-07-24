@@ -25,6 +25,7 @@ import org.jcodec.containers.mp4.demuxer.MP4Demuxer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.sound.sampled.AudioFileFormat;
@@ -38,7 +39,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
@@ -46,15 +46,40 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
+/**
+ * 文件格式转换服务实现。
+ * <p>
+ * 支持的能力分为两类：
+ * <ol>
+ *   <li><b>本地处理</b> — 在 JVM 内用 Java 库完成，不依赖外部服务：
+ *     <ul>
+ *       <li>MP3 → PCM → WAV（javax.sound）</li>
+ *       <li>M4A/AAC → PCM → WAV（jcodec）</li>
+ *       <li>PDF → DOCX（PDFBox + docx4j）</li>
+ *     </ul>
+ *   </li>
+ *   <li><b>API 调用</b> — 通过 uapis.cn 云服务完成：
+ *     <ul>
+ *       <li>DOCX → Markdown → PDF（POI + uapis API）</li>
+ *       <li>Markdown → PDF（uapis API）</li>
+ *       <li>Markdown → HTML（uapis API）</li>
+ *     </ul>
+ *   </li>
+ * </ol>
+ * 标注了 {@code @Tool} 的方法可被 AI 模型直接调用。
+ * </p>
+ */
 @Service
 @RequiredArgsConstructor
 public class FileFormatServiceImpl implements FileFormatService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileFormatServiceImpl.class);
+
+    /** 临时文件存放目录 */
     private static final File TEMP_DIR = new File(
             System.getProperty("java.io.tmpdir"), "westart_convert");
+
     private static final int[] WAV_HEADER = {0x52, 0x49, 0x46, 0x46};
     private static final int[] WAVE_ID = {0x57, 0x41, 0x56, 0x45};
 
@@ -65,6 +90,12 @@ public class FileFormatServiceImpl implements FileFormatService {
         TEMP_DIR.mkdirs();
     }
 
+    // ==================== 接口实现：本地音频转换 ====================
+
+    /**
+     * 音频转 WAV。
+     * WAV 格式直接透传；MP3 和 M4A 先解码为 PCM 再封装 WAV 头。
+     */
     @Override
     public byte[] toWav(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
@@ -77,16 +108,17 @@ public class FileFormatServiceImpl implements FileFormatService {
         };
     }
 
+    // ==================== 接口实现：文档互转（本地 + API） ====================
+
+    /**
+     * DOCX → PDF。
+     * 先通过 POI 将 docx 解析为 Markdown 文本，再调用 uapis API 渲染 PDF。
+     */
     @Override
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         if (!"application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(srcMime)) {
             throw new IOException("不支持的格式: " + srcMime + "（仅支持 .docx）");
-        }
-
-        String apiKey = System.getenv("UAPIS_API_KEY");
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
         }
 
         File tmp = null;
@@ -96,31 +128,7 @@ public class FileFormatServiceImpl implements FileFormatService {
             try (FileInputStream fis = new FileInputStream(tmp)) {
                 markdown = docxToMarkdown(fis);
             }
-
-            String requestBodyJson = objectMapper.writeValueAsString(
-                    java.util.Map.of(
-                            "text", markdown,
-                            "theme", "github",
-                            "paper_size", "A4"));
-            RequestBody body = RequestBody.create(
-                    requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
-            Request request = new Request.Builder()
-                    .url("https://uapis.cn/api/v1/text/markdown-to-pdf")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .post(body)
-                    .build();
-
-            try (Response resp = okHttpClient.newCall(request).execute()) {
-                if (!resp.isSuccessful()) {
-                    String err = resp.body() != null ? resp.body().string() : "";
-                    throw new IOException("API 返回错误: " + resp.code() + " " + err);
-                }
-                byte[] pdf = resp.body() != null ? resp.body().bytes() : null;
-                if (pdf == null || pdf.length == 0) {
-                    throw new IOException("API 返回空 PDF");
-                }
-                return pdf;
-            }
+            return callMarkdownToPdfApi(markdown, "github", "A4");
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
@@ -130,6 +138,10 @@ public class FileFormatServiceImpl implements FileFormatService {
         }
     }
 
+    /**
+     * PDF → DOCX。
+     * 使用 PDFBox 提取文本，再通过 docx4j 生成 .docx 文件。
+     */
     @Override
     public byte[] toDocx(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
@@ -166,7 +178,128 @@ public class FileFormatServiceImpl implements FileFormatService {
         }
     }
 
-    @Tool(value = "当用户需要从Word文档(.docx)或PDF文件中提取文本内容时，调用此工具。参数mimeType为文件类型，base64Data为文件的Base64编码数据。返回提取的纯文本内容。")
+    // ==================== 接口实现：Markdown → PDF（仅 API） ====================
+
+    /**
+     * Markdown → PDF。
+     * 直接调用 uapis API，支持自定义主题和纸张大小。
+     */
+    @Override
+    public byte[] markdownToPdf(String markdownText, String theme, String paperSize) throws IOException {
+        if (markdownText == null || markdownText.isBlank()) {
+            throw new IOException("Markdown文本不能为空");
+        }
+        String resolvedTheme = (theme == null || theme.isBlank()) ? "github" : theme;
+        String resolvedPaperSize = (paperSize == null || paperSize.isBlank()) ? "A4" : paperSize;
+        return callMarkdownToPdfApi(markdownText, resolvedTheme, resolvedPaperSize);
+    }
+
+    // ==================== 接口实现：Markdown → HTML（仅 API） ====================
+
+    /**
+     * Markdown → HTML。
+     * 调用 uapis API，可选择返回完整页面或 HTML 片段。
+     */
+    @Override
+    public String markdownToHtml(String markdownText, boolean completePage) throws IOException {
+        if (markdownText == null || markdownText.isBlank()) {
+            throw new IOException("Markdown文本不能为空");
+        }
+        return callMarkdownToHtmlApi(markdownText, completePage);
+    }
+
+    // ==================== uapis API 调用封装 ====================
+
+    /**
+     * 调用 uapis.cn Markdown → PDF 接口。
+     * POST /api/v1/text/markdown-to-pdf，返回 PDF 二进制流。
+     */
+    private byte[] callMarkdownToPdfApi(String markdown, String theme, String paperSize) throws IOException {
+        String apiKey = getUapiKey();
+        if (apiKey == null) {
+            throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
+        }
+
+        String requestBodyJson = objectMapper.writeValueAsString(
+                java.util.Map.of(
+                        "text", markdown,
+                        "theme", theme,
+                        "paper_size", paperSize));
+        RequestBody body = RequestBody.create(
+                requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+        Request request = new Request.Builder()
+                .url("https://uapis.cn/api/v1/text/markdown-to-pdf")
+                .header("Authorization", "Bearer " + apiKey)
+                .post(body)
+                .build();
+
+        try (Response resp = okHttpClient.newCall(request).execute()) {
+            if (!resp.isSuccessful()) {
+                String err = resp.body() != null ? resp.body().string() : "";
+                throw new IOException("API 返回错误: " + resp.code() + " " + err);
+            }
+            byte[] pdf = resp.body() != null ? resp.body().bytes() : null;
+            if (pdf == null || pdf.length == 0) {
+                throw new IOException("API 返回空 PDF");
+            }
+            return pdf;
+        }
+    }
+
+    /**
+     * 调用 uapis.cn Markdown → HTML 接口。
+     * POST /api/v1/text/markdown-to-html。
+     * <ul>
+     *   <li>completePage=true：format=html，直接返回完整 HTML 页面</li>
+     *   <li>completePage=false：format=json，从响应 JSON 中提取 html 字段</li>
+     * </ul>
+     */
+    private String callMarkdownToHtmlApi(String markdown, boolean completePage) throws IOException {
+        String apiKey = getUapiKey();
+        if (apiKey == null) {
+            throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
+        }
+
+        String requestBodyJson = objectMapper.writeValueAsString(
+                java.util.Map.of(
+                        "text", markdown,
+                        "format", completePage ? "html" : "json"));
+        RequestBody body = RequestBody.create(
+                requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+        Request request = new Request.Builder()
+                .url("https://uapis.cn/api/v1/text/markdown-to-html")
+                .header("Authorization", "Bearer " + apiKey)
+                .post(body)
+                .build();
+
+        try (Response resp = okHttpClient.newCall(request).execute()) {
+            if (!resp.isSuccessful()) {
+                String err = resp.body() != null ? resp.body().string() : "";
+                throw new IOException("API 返回错误: " + resp.code() + " " + err);
+            }
+            if (completePage) {
+                return resp.body() != null ? resp.body().string() : "";
+            }
+            String json = resp.body() != null ? resp.body().string() : "";
+            JsonNode root = objectMapper.readTree(json);
+            return root.path("html").asText();
+        }
+    }
+
+    private String getUapiKey() {
+        String key = System.getenv("UAPIS_API_KEY");
+        if (key != null && !key.isBlank()) return key;
+        return System.getenv("UAPI_KEY");
+    }
+
+    // ==================== @Tool 方法（AI 可调用） ====================
+
+    /**
+     * AI 工具：从 Word 或 PDF 文档中提取纯文本。
+     * 输入为 Base64 编码的文件数据，输出为提取的文本内容。
+     */
+    @Tool(value = "当用户需要从Word文档(.docx)或PDF文件中提取文本内容时，调用此工具。" +
+            "参数mimeType为文件类型，base64Data为文件的Base64编码数据。返回提取的纯文本内容。")
     public String extractDocumentText(String base64Data, String mimeType) throws IOException {
         if (base64Data == null || base64Data.isBlank()) {
             return "错误：文件内容为空";
@@ -188,17 +321,60 @@ public class FileFormatServiceImpl implements FileFormatService {
         };
     }
 
+    /**
+     * AI 工具：Markdown 文本 → PDF。
+     * 返回 Base64 编码的 PDF 数据，方便 AI 在回复中引用。
+     */
+    @Tool(value = "当用户需要将Markdown文本内容直接转换为PDF文件时，调用此工具。" +
+            "markdownText为Markdown格式的文本，theme为可选主题(github/minimal/light/dark，默认github)，" +
+            "paperSize为可选纸张大小(A4/Letter，默认A4)。返回Base64编码的PDF文件数据。")
+    public String convertMarkdownToPdf(String markdownText, String theme, String paperSize) {
+        try {
+            byte[] pdfData = markdownToPdf(markdownText, theme, paperSize);
+            return Base64.getEncoder().encodeToString(pdfData);
+        } catch (IOException e) {
+            LOGGER.error("Markdown转PDF失败", e);
+            return "错误：Markdown转PDF失败 - " + e.getMessage();
+        }
+    }
+
+    /**
+     * AI 工具：Markdown 文本 → HTML。
+     * completePage=true 时返回完整 HTML 页面结构，false 时仅返回片段。
+     */
+    @Tool(value = "当用户需要将Markdown文本内容转换为HTML时，调用此工具。" +
+            "markdownText为Markdown格式的文本，completePage表示是否生成完整HTML页面(含DOCTYPE和样式)，" +
+            "false则只返回HTML片段。返回HTML内容。")
+    public String convertMarkdownToHtml(String markdownText, boolean completePage) {
+        try {
+            return markdownToHtml(markdownText, completePage);
+        } catch (IOException e) {
+            LOGGER.error("Markdown转HTML失败", e);
+            return "错误：Markdown转HTML失败 - " + e.getMessage();
+        }
+    }
+
+    /**
+     * AI 工具：查询当前系统支持的所有文件格式转换类型。
+     */
     @Tool(value = "当用户需要查询系统支持的文件格式转换类型时，调用此工具。返回所有支持的格式转换说明。")
     public String getSupportedConversions() {
         return """
                 支持的文件格式转换：
                 1. Word (.docx) ↔ PDF
-                2. 音频文件 → WAV (.wav)
-                3. 支持的音频输入格式：MP3、M4A
-                4. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
+                2. Markdown → PDF
+                3. Markdown → HTML
+                4. 音频文件 → WAV (.wav)
+                5. 支持的音频输入格式：MP3、M4A
+                6. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
                 """;
     }
 
+    // ==================== 文档文本提取（私有方法） ====================
+
+    /**
+     * 从 .docx 字节中提取纯文本，包含段落和表格内容。
+     */
     private String extractDocxText(byte[] fileData) throws IOException {
         try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileData))) {
             StringBuilder sb = new StringBuilder();
@@ -223,6 +399,10 @@ public class FileFormatServiceImpl implements FileFormatService {
         }
     }
 
+    /**
+     * 从 PDF 字节中提取纯文本。
+     * 写入临时文件后用 PDFBox 读取，按位置排序以保持段落顺序。
+     */
     private String extractPdfText(byte[] fileData) throws IOException {
         File tmp = null;
         try {
@@ -239,6 +419,12 @@ public class FileFormatServiceImpl implements FileFormatService {
         }
     }
 
+    // ==================== 音频解码（私有方法） ====================
+
+    /**
+     * MP3 → PCM → WAV。
+     * 使用 javax.sound 解码 MP3，重采样为 16kHz 16bit 单声道 PCM，再封装 WAV 头。
+     */
     private byte[] decodeMp3ToPcm(byte[] mp3Data) throws IOException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(mp3Data);
              AudioInputStream ais = AudioSystem.getAudioInputStream(bais)) {
@@ -254,6 +440,10 @@ public class FileFormatServiceImpl implements FileFormatService {
         }
     }
 
+    /**
+     * M4A/AAC → PCM → WAV。
+     * 使用 jcodec 库逐帧解码 AAC，重采样为 16kHz 16bit 单声道 PCM，再封装 WAV 头。
+     */
     private byte[] decodeM4aToPcm(byte[] m4aData) throws IOException {
         File tmp = null;
         try {
@@ -282,12 +472,15 @@ public class FileFormatServiceImpl implements FileFormatService {
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
-            throw new IOException("抱歉，M4A解码失败", e);
+            throw new IOException("M4A解码失败", e);
         } finally {
             deleteFile(tmp);
         }
     }
 
+    /**
+     * 解码单帧 AAC 数据并写入 PCM 输出流。
+     */
     private void decodeFrame(AACDecoder decoder, Packet packet, ByteBuffer out,
                              ByteArrayOutputStream pcm) throws IOException {
         out.clear();
@@ -298,6 +491,15 @@ public class FileFormatServiceImpl implements FileFormatService {
         pcm.write(b);
     }
 
+    // ==================== WAV 封装工具 ====================
+
+    /**
+     * 将 PCM 裸数据封装为标准 WAV 文件（RIFF/WAVE 格式）。
+     *
+     * @param pcm        PCM 音频数据
+     * @param sampleRate 采样率（Hz）
+     * @return 完整的 WAV 文件字节
+     */
     private byte[] writeWav(byte[] pcm, int sampleRate) throws IOException {
         int channels = 1, bits = 16;
         int byteRate = sampleRate * channels * bits / 8;
@@ -336,6 +538,12 @@ public class FileFormatServiceImpl implements FileFormatService {
         out.write((v >> 8) & 0xFF);
     }
 
+    // ==================== DOCX → Markdown 解析 ====================
+
+    /**
+     * 将 docx 文档解析为 Markdown 格式文本。
+     * 支持段落、标题（Heading 样式 → # 标记）和表格（→ Markdown 表格语法）。
+     */
     private String docxToMarkdown(FileInputStream docxStream) throws IOException {
         XWPFDocument doc = new XWPFDocument(docxStream);
         StringBuilder md = new StringBuilder();
@@ -385,6 +593,15 @@ public class FileFormatServiceImpl implements FileFormatService {
         return md.toString();
     }
 
+    // ==================== 临时文件管理 ====================
+
+    /**
+     * 将字节数组写入临时文件，供本地库（PDFBox、jcodec 等）读取。
+     *
+     * @param data   文件数据
+     * @param suffix 文件后缀（如 .pdf、.m4a）
+     * @return 创建的临时文件
+     */
     private File saveTemp(byte[] data, String suffix) throws IOException {
         File f = new File(TEMP_DIR, UUID.randomUUID().toString() + suffix);
         try (FileOutputStream fos = new FileOutputStream(f)) {
@@ -393,6 +610,9 @@ public class FileFormatServiceImpl implements FileFormatService {
         return f;
     }
 
+    /**
+     * 安全删除临时文件。
+     */
     private void deleteFile(File f) {
         if (f != null && f.exists()) {
             try {

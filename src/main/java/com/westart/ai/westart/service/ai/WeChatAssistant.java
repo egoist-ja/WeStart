@@ -15,7 +15,8 @@ import java.util.List;
             "weatherServiceImpl",
             "logisticsServiceImpl",
             "webSearchServiceImpl",
-            "fileFormatServiceImpl"
+            "fileFormatServiceImpl",
+            "dailyHotServiceImpl"
     }
 )
 public interface WeChatAssistant {
