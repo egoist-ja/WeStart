@@ -37,17 +37,20 @@ public class VoiceGenerateServiceImpl implements VoiceGenerateService {
     private static final int GENERATED_VOICE_CHANNEL_COUNT = 1;
 
     private final VoiceGenerator voiceGenerator;
-    private final ILinkClient iLinkClient;
     private final OkHttpClient okHttpClient;
 
     /**
      * 根据文本生成语音，并将完整语音文件发送给指定微信用户。
      *
+     * @param client 当前消息所属的iLink客户端
      * @param userId 微信用户ID
      * @param content 待合成的文本内容
      */
     @Override
-    public void generateAndSendVoice(String userId, String content) {
+    public void generateAndSendVoice(
+            ILinkClient client,
+            String userId,
+            String content) {
         if (StringUtils.isBlank(userId)) {
             throw new IllegalArgumentException("userId不能为空");
         }
@@ -60,7 +63,7 @@ public class VoiceGenerateServiceImpl implements VoiceGenerateService {
         byte[] voiceData = prepareGeneratedAudioFile(
                 resolveGeneratedAudioBytes(audio), audio.mimeType());
         try {
-            iLinkClient.sendFile(
+            client.sendFile(
                     userId,
                     voiceData,
                     GENERATED_VOICE_FILE_NAME,
