@@ -12,9 +12,10 @@ import java.util.List;
     wiringMode= AiServiceWiringMode.EXPLICIT,
     chatModel="textAssistantModel",
     tools={
-            "weatherServiceImpl",
-            "logisticsServiceImpl",
-            "webSearchServiceImpl"
+            "weatherService",
+            "logisticsService",
+            "webSearchService",
+            "gaodeMapService"
     }
 )
 public interface WeChatAssistant {
