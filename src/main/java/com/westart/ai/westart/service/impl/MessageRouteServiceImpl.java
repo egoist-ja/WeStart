@@ -8,6 +8,7 @@ import com.westart.ai.westart.service.ai.WeChatMessageRouter;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.TextContent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import java.util.Set;
  * 消息路由服务实现，负责调用路由模型、校验分类结果并按索引提取语义片段。
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class MessageRouteServiceImpl implements MessageRouteService {
 

@@ -1,95 +1,156 @@
 package com.westart.ai.westart.service.impl;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
+import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.github.wechat.ilink.sdk.core.login.LoginStatus;
+import com.westart.ai.westart.DTO.ILinkClientSession;
+import com.westart.ai.westart.DTO.LoginSessionResult;
+import com.westart.ai.westart.config.ILinkClientFactory;
+import com.westart.ai.westart.service.UserThreadService;
 import com.westart.ai.westart.service.WeChatLoginService;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 /**
- * 微信机器人登录服务实现，管理全局唯一机器人账号的扫码注册与登录生命周期。
+ * 微信客户端登录服务实现，负责多客户端会话的创建、扫码登录和退出编排。
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class WeChatLoginServiceImpl implements WeChatLoginService {
 
-    private final ILinkClient iLinkClient;
-    private volatile boolean closed;
+    private final ILinkClientFactory iLinkClientFactory;
+    private final ILinkClientSessionRegistry sessionRegistry;
+    private final UserThreadService userThreadService;
 
     /**
-     * 为全局唯一的微信机器人发起扫码注册，并异步记录登录授权结果。
+     * 创建独立的iLink客户端会话并发起扫码登录。
      *
-     * <p>该方法不创建普通用户登录会话。机器人登录后，所有用户消息由同一个
-     * {@link ILinkClient} 拉取，并在消息处理层根据userId区分。</p>
-     *
-     * @return 用于生成登录二维码的内容
+     * @return 登录会话标识及二维码内容
      */
     @Override
-    public String createLogin() {
-        if (closed) {
-            throw new IllegalStateException("微信机器人客户端已关闭，无法再次注册");
-        }
-        if (iLinkClient.isLoggedIn()) {
-            throw new IllegalStateException("微信机器人已经注册并登录，请勿重复扫码");
-        }
-        LoginStatus.Status status = iLinkClient.getLoginStatus().getStatus();
-        if (status == LoginStatus.Status.WAITING || status == LoginStatus.Status.SCANNED) {
-            throw new IllegalStateException("微信机器人正在等待扫码或确认，请勿重复注册");
-        }
+    public LoginSessionResult createLogin() {
+        String sessionId = UUID.randomUUID().toString();
+        ILinkClient client = iLinkClientFactory.createClient(sessionId);
+        ILinkClientSession session = new ILinkClientSession(sessionId, client);
+        boolean registered = false;
 
-        final String qrCodeContent;
         try {
-            qrCodeContent = iLinkClient.executeLogin();
-        } catch (RuntimeException exception) {
-            throw new IllegalStateException("微信机器人扫码注册发起失败", exception);
-        }
-        if (StringUtils.isBlank(qrCodeContent)) {
-            iLinkClient.cancelLogin();
-            throw new IllegalStateException("微信机器人扫码注册失败，二维码内容为空");
-        }
-        iLinkClient.getLoginFuture().whenComplete((loginContext, throwable) -> {
-            if (throwable != null) {
-                log.error("微信机器人扫码注册失败", throwable);
-                return;
+            sessionRegistry.register(session);
+            registered = true;
+
+            String qrCodeContent = client.executeLogin();
+            if (StringUtils.isBlank(qrCodeContent)) {
+                throw new IllegalStateException("微信扫码登录二维码内容为空");
             }
-            log.info("微信机器人注册并登录成功，iLink SDK开始轮询全部用户消息");
-        });
-        return qrCodeContent;
+            client.getLoginFuture()
+                    .whenComplete((loginContext, throwable) ->
+                            completeLogin(session, loginContext, throwable));
+            return new LoginSessionResult(sessionId, qrCodeContent);
+        } catch (RuntimeException exception) {
+            closeFailedSession(session, registered, exception);
+            throw new IllegalStateException(
+                    "微信扫码登录会话创建失败，sessionId=" + sessionId,
+                    exception);
+        }
     }
 
     /**
-     * 获取当前微信机器人的登录状态。
+     * 获取指定iLink客户端会话的登录状态。
      *
+     * @param sessionId 登录会话唯一标识
      * @return 登录状态
      */
     @Override
-    public LoginStatus getLoginStatus() {
-        return iLinkClient.getLoginStatus();
+    public LoginStatus getLoginStatus(String sessionId) {
+        return sessionRegistry.getRequired(sessionId)
+                .client()
+                .getLoginStatus();
     }
 
     /**
-     * 取消未完成的登录并关闭全局微信客户端。
+     * 停止消息处理任务并关闭指定iLink客户端会话。
      *
-     * <p>底层SDK关闭后不可复用，因此该操作主要用于主动下线或应用关闭。</p>
+     * @param sessionId 登录会话唯一标识
      */
     @Override
-    public void logout() {
-        if (closed) {
-            log.info("微信客户端已经关闭，无需重复退出");
+    public void logout(String sessionId) {
+        if (StringUtils.isBlank(sessionId)) {
+            throw new IllegalArgumentException("sessionId不能为空");
+        }
+
+        userThreadService.stopSession(sessionId);
+        if (!sessionRegistry.closeAndRemove(sessionId)) {
+            log.info("iLink客户端会话不存在，无需重复退出，sessionId={}", sessionId);
+        }
+    }
+
+    /**
+     * 处理扫码登录结果，成功时启动会话消息线程，失败时释放会话资源。
+     *
+     * @param session 当前登录会话
+     * @param loginContext SDK登录上下文
+     * @param throwable 登录异常
+     */
+    private void completeLogin(
+            ILinkClientSession session,
+            LoginContext loginContext,
+            Throwable throwable) {
+        String sessionId = session.sessionId();
+        if (throwable != null) {
+            log.error("微信扫码登录失败，sessionId={}", sessionId, throwable);
+            sessionRegistry.closeAndRemove(sessionId);
             return;
         }
+
+        boolean sessionAvailable = sessionRegistry.find(sessionId)
+                .filter(registeredSession -> registeredSession == session)
+                .isPresent();
+        if (!sessionAvailable) {
+            log.info("微信扫码登录完成时会话已经关闭，sessionId={}", sessionId);
+            return;
+        }
+        if (loginContext == null) {
+            log.error("微信扫码登录成功但登录上下文为空，sessionId={}", sessionId);
+            sessionRegistry.closeAndRemove(sessionId);
+            return;
+        }
+
+        userThreadService.startSession(sessionId);
+        log.info(
+                "微信扫码登录成功，sessionId={}，userId={}，botId={}",
+                sessionId,
+                loginContext.getUserId(),
+                loginContext.getBotId());
+    }
+
+    /**
+     * 创建登录会话失败时释放已创建的客户端资源。
+     *
+     * @param session 创建失败的会话
+     * @param registered 会话是否已经注册
+     * @param originalException 原始异常
+     */
+    private void closeFailedSession(
+            ILinkClientSession session,
+            boolean registered,
+            RuntimeException originalException) {
         try {
-            iLinkClient.cancelLogin();
-            iLinkClient.clearAllContexts();
-            iLinkClient.close();
-            iLinkClient.getLoginStatus().reset();
-            closed = true;
-            log.info("微信客户端已关闭");
-        } catch (RuntimeException exception) {
-            throw new IllegalStateException("微信客户端关闭失败", exception);
+            if (registered) {
+                sessionRegistry.closeAndRemove(session.sessionId());
+            } else {
+                session.client().close();
+            }
+        } catch (RuntimeException closeException) {
+            originalException.addSuppressed(closeException);
+            log.error(
+                    "清理登录失败的iLink客户端会话异常，sessionId={}",
+                    session.sessionId(),
+                    closeException);
         }
     }
 }
