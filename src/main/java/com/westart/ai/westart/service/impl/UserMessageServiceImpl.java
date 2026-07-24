@@ -221,6 +221,12 @@ public class UserMessageServiceImpl implements UserMessageService {
         switch (segmentResult.type()) {
             case CHAT -> {
                 String reply = wechatAssistant.reply(prepareModelContents(segmentContents));
+                if (reply == null || reply.isBlank()) {
+                    log.error("AI模型返回了空回复，userId={}，segmentContentsSize={}",
+                            userId, segmentContents.size());
+                    sendMessage(userId, MODEL_FAILURE_REPLY);
+                    return;
+                }
                 if (replyWithVoice) {
                     voiceGenerateService.generateAndSendVoice(client, userId, reply);
                 } else {

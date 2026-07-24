@@ -15,7 +15,7 @@ import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
-public class LogisticsService{
+public class LogisticsService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LogisticsService.class);
     private static final String UAPI_BASE_URL = "uapis.cn";

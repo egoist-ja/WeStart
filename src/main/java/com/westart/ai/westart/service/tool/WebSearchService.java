@@ -11,7 +11,6 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +31,7 @@ public class WebSearchService{
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
     private static final DateTimeFormatter SEARCH_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String UAPI_SEARCH_API_URL = "https://uapis.cn/api/v1/search/aggregate";
     private static final int MAX_QUERY_LENGTH = 500;
     private static final int MAX_LOG_QUERY_LENGTH = 200;
     private static final int MAX_SUMMARY_LENGTH = 600;
@@ -39,7 +39,6 @@ public class WebSearchService{
 
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;
-    private final Environment environment;
 
     @Tool(value = """
             当用户的问题依赖互联网实时信息时调用该工具。
@@ -63,14 +62,12 @@ public class WebSearchService{
             return "联网搜索失败：缺少有效的搜索关键词。";
         }
 
-        String apiKey = environment.getProperty("websearch.api-key", "");
+        String apiKey = System.getenv("UAPI_KEY");
         if (apiKey == null || apiKey.isBlank()) {
-            LOGGER.error("UAPI 联网搜索 API Key 未配置");
+            LOGGER.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 为空");
             return "联网搜索工具尚未配置，无法查询实时信息。";
         }
 
-        String apiUrl = environment.getProperty(
-                "websearch.api-url", "https://uapis.cn/api/v1/search/aggregate");
         String loggedQuery = truncate(normalizedQuery, MAX_LOG_QUERY_LENGTH);
         long startNanos = System.nanoTime();
         LOGGER.info("开始执行 UAPI 联网搜索，query={}", loggedQuery);
@@ -83,7 +80,7 @@ public class WebSearchService{
 
             String requestJson = objectMapper.writeValueAsString(requestPayload);
             Request request = new Request.Builder()
-                    .url(apiUrl)
+                    .url(UAPI_SEARCH_API_URL)
                     .post(RequestBody.create(requestJson, JSON_MEDIA_TYPE))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")

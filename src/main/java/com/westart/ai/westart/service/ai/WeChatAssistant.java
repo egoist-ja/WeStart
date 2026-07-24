@@ -14,7 +14,8 @@ import java.util.List;
     tools={
             "weatherService",
             "logisticsService",
-            "webSearchService"
+            "webSearchService",
+            "gaodeMapService"
     }
 )
 public interface WeChatAssistant {
