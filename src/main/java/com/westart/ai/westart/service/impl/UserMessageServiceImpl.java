@@ -224,7 +224,7 @@ public class UserMessageServiceImpl implements UserMessageService {
                 if (reply == null || reply.isBlank()) {
                     log.error("AI模型返回了空回复，userId={}，segmentContentsSize={}",
                             userId, segmentContents.size());
-                    sendMessage(userId, MODEL_FAILURE_REPLY);
+                    sendMessage(client, sessionId,userId, MODEL_FAILURE_REPLY);
                     return;
                 }
                 if (replyWithVoice) {

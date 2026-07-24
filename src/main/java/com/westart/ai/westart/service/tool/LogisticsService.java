@@ -7,17 +7,15 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LogisticsService {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(LogisticsService.class);
     private static final String UAPI_BASE_URL = "uapis.cn";
 
     private final OkHttpClient okHttpClient;
@@ -43,7 +41,7 @@ public class LogisticsService {
             }
 
             String url = urlBuilder.build().toString();
-            LOGGER.info("查询快递物流，trackingNumber={}，carrierCode={}，phone={}",
+            log.info("查询快递物流，trackingNumber={}，carrierCode={}，phone={}",
                     trackingNumber,
                     carrierCode == null || carrierCode.isBlank() ? "自动识别" : carrierCode,
                     phone == null || phone.isBlank() ? "未提供" : phone);
@@ -65,11 +63,11 @@ public class LogisticsService {
                 String body = responseBody == null ? "" : responseBody.string();
 
                 if (!response.isSuccessful()) {
-                    LOGGER.error("快递查询接口请求失败，HTTP {}: {}", response.code(), body);
+                    log.error("快递查询接口请求失败，HTTP {}: {}", response.code(), body);
                     throw new IOException("快递查询接口请求失败，HTTP "
                             + response.code() + ": " + body);
                 }
-                LOGGER.info("快递物流查询成功，trackingNumber={}", trackingNumber);
+                log.info("快递物流查询成功，trackingNumber={}", trackingNumber);
                 return body;
             }
 

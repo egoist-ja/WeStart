@@ -33,7 +33,6 @@ import java.io.IOException;
 public class GaodeMapService {
 
     private static final String AMAP_BASE_URL = "restapi.amap.com";
-
     private final OkHttpClient okHttpClient;
 
     /**
@@ -52,13 +51,14 @@ public class GaodeMapService {
 
     //地理编码
     @Tool(value = """
-            将用户提供的文字地址转换为精确的经纬度坐标。这是获取用户精确位置的【首选工具】。
+            将用户提供的文字地址转换为精确的经纬度坐标。这是获取用户精确位置的【首选工具】，
+            也是旅游规划和出行路线中 searchPOI 之后必须调用的第二步。
 
             何时必须调用：
             - 用户说"我在深圳南山区科技园"、"我家在朝阳区建国路88号"等文字地址
-            - 需要将地址转为坐标后才能进行周边搜索（searchAround）
-            - 用户提到具体地名/路名/小区名/商圈名/写字楼名且需要分析该区域时
-            - 任何需要精确经纬度的下游操作（周边分析、路线规划等）
+            - 旅游规划时，拿到 searchPOI 返回的景点名称后，必须逐一调用本工具获取坐标
+            - 出行路线规划前，起终点必须先用本工具转换为坐标
+            - 任何需要精确经纬度的下游操作（周边搜索、路线规划等）
 
             参数说明：
             - address（必填）：结构化地址字符串，越详细坐标越精确。
@@ -141,29 +141,37 @@ public class GaodeMapService {
     //POI关键字搜索
 
     @Tool(value = """
-            在城市或全国范围内按关键词搜索 POI（兴趣点），如奶茶店、星巴克、商场、地铁站等。
+            在城市或全国范围内按关键词搜索 POI（兴趣点）。
+
+            【旅游规划强制入口】
+            任何旅游、旅行、出游规划请求（如「帮我规划XX游」「XX几日游怎么安排」
+            「想去XX玩」「XX有什么好玩的」），第一步必须先调用本工具搜索目的地景点。
+            即使你知道该目的地有哪些景点，也必须通过本工具获取真实 POI 数据再规划。
+            严禁跳过本工具直接用训练知识拼凑行程。
 
             何时使用：
+            - 用户请求旅游规划、行程推荐 → 这是强制第一步，必须调本工具搜景点
             - 用户问"深圳有多少家星巴克"、"北京有什么好吃的川菜馆"
             - 用户需要分析某个城市区域内某类商户的分布情况
             - 用户问"XX附近有没有XX"，但尚未提供精确坐标时，可先用城市+关键词做初步搜索
             - 商业分析场景：如"我想在深圳开奶茶店，帮我看看现有竞争情况"
 
             参数说明：
-            - keywords（必填）：搜索关键词，如"奶茶店"、"咖啡厅"、"商场"、"地铁站"、"银行"。
-              规则：只支持一个关键词，如需搜索多个类型请分次调用。
-            - city（选填）：限定搜索的城市或区域。
-              支持：城市中文名（深圳）、citycode（0755）、adcode（440300）。
-              不填则为全国搜索，但结果可能不够精准，建议尽量填写。
-            - types（选填）：POI 分类编码或汉字分类，用于更精确的类型筛选。
-              如："050000"（餐饮服务）、"060000"（购物服务）、"170000"（科教文化服务）。
-              不填则由关键词自由匹配。
-              多个类型用竖线分隔，如："050000|060000"。
+            - keywords（必填）：搜索关键词。
+              旅游场景：先用"景点"搜一次，再用"酒店"搜一次，再用"餐厅"搜一次
+              商业场景：如"奶茶店"、"咖啡厅"、"商场"、"地铁站"、"银行"
+              规则：只支持一个关键词，多个类型请分次调用
+            - city（选填）：限定搜索城市。旅游规划必须传入目的地城市/省份名。
+              如用户说"云南七日游"，传 city="云南"；"丽江三日游"，传 city="丽江"
+            - types（选填）：POI 分类编码，如"050000"（餐饮）、"060000"（购物）
 
-            调用建议：
-            - 如果用户给了具体地址，优先用 geocode 获取坐标，再用 searchAround 做周边搜索（更精确）
-            - 如果用户只给了城市名，用本工具做城市级关键词搜索
-            - 商业分析时，建议同时搜索目标品类和配套品类（如奶茶店 + 商场 + 写字楼）
+            旅游规划标准工作流：
+            searchPOI("景点", "云南") → 拿到景点列表 → 对每个景点 geocode 获取坐标
+            → driving(坐标, 坐标, null, "途经点1;途经点2") 规划路线
+            → searchAround(景点坐标, "酒店", 3000) 查住宿
+            → searchAround(景点坐标, "餐厅", 1000) 查餐饮
+
+            注意：不填 city 则全国搜索，结果可能不准，旅游场景必须填 city。
             """)
     public String searchPOI(String keywords, String city, String types) {
         try {
@@ -294,6 +302,486 @@ public class GaodeMapService {
             return executeRequest(url);
         } catch (IOException e) {
             throw new RuntimeException("高德IP定位失败", e);
+        }
+    }
+
+    //驾车路线规划
+    @Tool(value = """
+            根据起终点经纬度坐标规划驾车路线，返回预计行驶距离、预计耗时和详细路线步骤。
+
+            何时必须调用：
+            - 用户问"从A到B开车要多久"、"开车从A去B怎么走"
+            - 用户需要自驾出行方案，包括预计时间、距离、路线说明
+            - 用户想比较不同出行方式时（与其他路线工具配合）
+
+            前置条件 —— 极其重要：
+            1. 起点和终点必须是精确的"经度,纬度"坐标，不能是文字地址
+            2. 如果用户只提供了文字地址（如"科技园"、"北京西站"），请先用 geocode 转换
+            3. 如果用户提供的位置模糊（如"市中心"、"我家附近"、"那边"），不要调用本工具
+               —— 请先追问用户获取具体地址或明确地标，然后用 geocode 获取坐标
+            4. 如果 geocode 返回的坐标不够精确（如只定位到城市中心），应告知用户地址不够详细
+
+            参数说明：
+            - origin（必填）：起点坐标，格式为"经度,纬度"。由 geocode 转换得到。
+            - destination（必填）：终点坐标，格式为"经度,纬度"。由 geocode 转换得到。
+            - strategy（选填）：路径计算策略。
+              0=速度优先/推荐（默认），1=避免收费，2=最短距离，
+              3=不走高速（仅限低速），4=避免拥堵且躲避收费
+            - waypoints（选填）：途经点坐标串，格式为"经度1,纬度1;经度2,纬度2"。
+              多个途经点用分号分隔，最多支持16个途经点。
+              途经顺序 = 传入顺序，终点不变。
+              这是实现多景点路线规划的核心参数。
+
+            典型调用链路：
+            - 简单路线：
+              1. 用户说"从深圳科技园开车去宝安机场要多久"
+              2. geocode("深圳市南山区科技园", "深圳") → 起点坐标
+              3. geocode("深圳市宝安国际机场", "深圳") → 终点坐标
+              4. driving(起点坐标, 终点坐标) → 距离、时间、路线
+
+            - 旅游多景点路线：
+              1. 用户说"从酒店出发，先去世界之窗，再去华侨城，最后回酒店"
+              2. geocode("深圳XX酒店", "深圳") → 起点坐标
+              3. geocode("深圳世界之窗", "深圳") → 途经点1坐标
+              4. geocode("深圳华侨城", "深圳") → 途经点2坐标
+              5. driving(起点坐标, 起点坐标, null, "途经点1;途经点2")
+                 → 完整的环形路线，含总距离、总耗时及各段详情
+
+            边缘情况处理：
+            - 如果用户地址定位结果不精确，应告知并请求更具体的地址
+            - 如果起终点相同或非常接近，应提醒用户
+            - 如果路线结果中 distance=0 或 routes 为空，说明地址解析有问题
+            - 途经点过多（>16个）时，建议用户分天规划
+            """)
+    public String driving(String origin, String destination, String strategy, String waypoints) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/driving")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .addQueryParameter("extensions", "all");
+
+            if (strategy != null && !strategy.isBlank()) {
+                urlBuilder.addQueryParameter("strategy", strategy);
+            }
+            if (waypoints != null && !waypoints.isBlank()) {
+                urlBuilder.addQueryParameter("waypoints", waypoints);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德驾车路线规划，origin={}，destination={}，strategy={}，waypoints={}",
+                    origin, destination,
+                    strategy == null || strategy.isBlank() ? "默认(速度优先)" : strategy,
+                    waypoints == null || waypoints.isBlank() ? "无途经点" : waypoints);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德驾车路线规划失败", e);
+        }
+    }
+
+    //公交路线规划
+    @Tool(value = """
+            根据起终点经纬度坐标规划公交/地铁出行路线，返回换乘方案、预计耗时和详细步骤。
+
+            何时必须调用：
+            - 用户问"从A到B坐地铁怎么走"、"坐公交怎么去XX"
+            - 用户需要公交、地铁或公交换乘方案
+            - 用户想比较公共交通与驾车的出行时间
+
+            前置条件 —— 极其重要：
+            1. 起点和终点必须是精确的"经度,纬度"坐标
+            2. 如果只有文字地址，请先用 geocode 转换
+            3. city 参数必须填写，公交路线依赖城市范围进行搜索
+            4. 如果用户位置模糊，请先追问后再调用
+
+            参数说明：
+            - origin（必填）：起点坐标，"经度,纬度"
+            - destination（必填）：终点坐标，"经度,纬度"
+            - city（必填）：起点所在城市名称或城市编码。
+              如果起点和终点不在同一城市，填写起点城市。
+              支持：城市中文名（深圳）、citycode（0755）、adcode（440300）
+            - strategy（选填）：乘车方案策略。
+              0=最快捷（默认），1=最少换乘，2=最少步行，3=不乘地铁
+
+            边缘情况处理：
+            - 如果公交方案 count=0，说明这两个地点间没有公共交通，建议改用 driving
+            - 如果跨城市距离过远（>100km），公交可能无法规划，建议改用 driving
+            - 座标来源不够精确会导致方案偏差，请确认地址后再调用
+            """)
+    public String transit(String origin, String destination, String city, String strategy) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/transit/integrated")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .addQueryParameter("city", city)
+                    .addQueryParameter("extensions", "all");
+
+            if (strategy != null && !strategy.isBlank()) {
+                urlBuilder.addQueryParameter("strategy", strategy);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德公交路线规划，origin={}，destination={}，city={}，strategy={}",
+                    origin, destination, city,
+                    strategy == null || strategy.isBlank() ? "默认(最快捷)" : strategy);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德公交路线规划失败", e);
+        }
+    }
+
+    //步行路线规划
+    @Tool(value = """
+            根据起终点经纬度坐标规划步行路线，返回步行距离、预计步行时间和路线步骤。
+
+            何时使用：
+            - 用户问"走过去要多久"、"从A走到B怎么走"
+            - 短距离出行（一般 5km 以内，超过建议改用骑行或驾车）
+            - 需要了解两个地点之间的步行距离
+
+            前置条件：
+            1. 起终点必须是精确的"经度,纬度"坐标
+            2. 如果只有文字地址，先用 geocode 转换
+            3. 两点间直线距离通常不应超过 50km（超过则步行不可行）
+
+            参数说明：
+            - origin（必填）：起点坐标，"经度,纬度"
+            - destination（必填）：终点坐标，"经度,纬度"
+
+            边缘情况处理：
+            - 如果步行距离 >5km，应提醒用户步行时间较长，建议 alternative 交通方式
+            - 如果路线规划失败（如跨水域），建议改用其他出行方式
+            """)
+    public String walking(String origin, String destination) {
+        try {
+            String url = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/walking")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .build()
+                    .toString();
+
+            log.info("高德步行路线规划，origin={}，destination={}", origin, destination);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德步行路线规划失败", e);
+        }
+    }
+
+    //骑行路线规划
+    @Tool(value = """
+            根据起终点经纬度坐标规划骑行路线，返回骑行距离、预计骑行时间和路线步骤。
+
+            何时使用：
+            - 用户问"骑车要多久"、"骑共享单车怎么走"
+            - 中短距离出行（一般 1km 至 20km 之间）
+            - 需要比较骑行与步行/驾车的时间差异
+
+            前置条件：
+            1. 起终点必须是精确的"经度,纬度"坐标
+            2. 只有文字地址时，先用 geocode 转换
+            3. 两点间距离不宜超过 50km
+
+            参数说明：
+            - origin（必填）：起点坐标，"经度,纬度"
+            - destination（必填）：终点坐标，"经度,纬度"
+
+            边缘情况处理：
+            - 如果骑行距离 >20km，应提醒用户距离较远
+            - 如果路线失败，可能是路径不适合骑行（高速公路等），建议改用其他方式
+            """)
+    public String bicycling(String origin, String destination) {
+        try {
+            String url = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/bicycling")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .build()
+                    .toString();
+
+            log.info("高德骑行路线规划，origin={}，destination={}", origin, destination);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德骑行路线规划失败", e);
+        }
+    }
+
+    //距离测量
+    @Tool(value = """
+            测量起点到终点的距离，支持直线距离、驾车距离或步行距离三种方式。
+
+            何时使用：
+            - 用户问"A离B多远"、"A和B之间的距离是多少"
+            - 用户只需距离数值而不需要完整路线方案时
+            - 快速比较多个地点与目标地点的距离
+
+            前置条件：
+            1. 起点和终点必须是精确的"经度,纬度"坐标
+            2. 只有文字地址时，先用 geocode 转换后调用
+
+            参数说明：
+            - origins（必填）：起点坐标，"经度,纬度"
+            - destination（必填）：终点坐标，"经度,纬度"
+            - type（选填）：距离计算方式。
+              0=直线距离（默认），1=驾车导航距离，3=步行规划距离
+
+            注意：驾车/步行距离基于实际路网（含绕行），直线距离仅基于两点坐标计算。
+            """)
+    public String distance(String origins, String destination, String type) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/distance")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origins", origins)
+                    .addQueryParameter("destination", destination);
+
+            if (type != null && !type.isBlank()) {
+                urlBuilder.addQueryParameter("type", type);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德距离测量，origins={}，destination={}，type={}",
+                    origins, destination,
+                    type == null || type.isBlank() ? "默认(直线距离)" : type);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德距离测量失败", e);
+        }
+    }
+
+    //行政区域查询
+    @Tool(value = """
+            查询中国行政区域信息，包括省份、城市、区县、街道的边界、下级行政区列表和中心点。
+
+            何时使用：
+            - 用户问"深圳有哪些区"、"南山区包含哪些街道"、"广东省下辖哪些市"
+            - 商业分析前需要了解区域划分：如"想在深圳南山开奶茶店"→ 调 district("南山区", "1") 查看下辖街道
+            - 需要确认某个地名属于哪个行政区
+            - 需要获取行政区的边界坐标（用于后续可视化）
+
+            参数说明：
+            - keywords（必填）：行政区名称，支持全称或关键字。
+              如："深圳市"、"南山区"、"粤海街道"、"山东省"
+            - subdistrict（选填）：显示下级行政区层级。
+              0=不返回下级（默认），1=返回下一级，2=返回下两级，3=返回下三级
+              例：district("广东省", "1") → 列出所有地级市
+              例：district("深圳市", "2") → 列出所有区 + 各区下辖街道
+
+            商业选址场景：
+            district("深圳市南山区", "1") → 获取街道列表
+            → 对每个街道用 geocode + searchAround 分析竞品密度
+            → 帮助用户选择最优街道
+
+            边缘情况处理：
+            - 如果 keywords 太模糊（如"南山"而非"深圳市南山区"），应指定上级城市
+            - 如果返回的 districts 为空，可能是名称不精确，建议用户确认完整名称
+            """)
+    public String district(String keywords, String subdistrict) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/config/district")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("keywords", keywords)
+                    .addQueryParameter("extensions", "all");
+
+            if (subdistrict != null && !subdistrict.isBlank()) {
+                urlBuilder.addQueryParameter("subdistrict", subdistrict);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德行政区域查询，keywords={}，subdistrict={}",
+                    keywords,
+                    subdistrict == null || subdistrict.isBlank() ? "默认(0)" : subdistrict);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德行政区域查询失败", e);
+        }
+    }
+
+    //输入提示
+    @Tool(value = """
+            根据用户输入的部分地址关键词，返回可能的地址补全建议列表。
+
+            何时使用：
+            - 用户输入了模糊地址（如"科技园"），需要列出"深圳科技园/北京科技园/广州科技园"让用户选择
+            - 用户在描述位置时提到不完整的名称，需要确定具体是哪个地方
+            - geocode 返回了多个可能位置时，辅助用户确认是哪一个
+            - 用户说"南山那边的XX"，不确定具体地址，先列候选
+
+            参数说明：
+            - keywords（必填）：用户输入的部分地址关键词。如"科技园"、"万达广场"、"朝阳"
+            - city（选填）：限定搜索城市，强烈建议填写以提高命中率。
+              如用户说"深圳科技园"，可传 city="深圳"
+
+            工作流程建议：
+            1. 用户提供模糊地址 → 调用 inputTips 获取候选列表
+            2. 列出 3-5 个最相关候选项让用户确认
+            3. 用户选择后 → 用 geocode 获取该选项的精确坐标
+            4. 继续后续分析
+
+            注意：本工具只返回地址名称和建议，不返回坐标。
+            拿到用户确认的地址后请用 geocode 获取坐标。
+            """)
+    public String inputTips(String keywords, String city) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/assistant/inputtips")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("keywords", keywords);
+
+            if (city != null && !city.isBlank()) {
+                urlBuilder.addQueryParameter("city", city);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德输入提示，keywords={}，city={}",
+                    keywords,
+                    city == null || city.isBlank() ? "未指定" : city);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德输入提示查询失败", e);
+        }
+    }
+
+    //静态地图
+    @Tool(value = """
+            根据指定的中心坐标、缩放级别和标注点，生成一张高德静态地图图片的访问链接。
+
+            何时使用：
+            - 用户需要查看某个位置的地图："帮我看一下这里的地图"
+            - 分析结果需要可视化呈现：如 POI 分布、路线概览
+            - 选址分析后，用户想直观看到目标位置周边环境
+            - 用户说"给我看地图"、"发个地图过来"
+
+            前置条件：
+            1. location 必须是精确的"经度,纬度"坐标
+            2. 如果只有地址，请先用 geocode 转换
+
+            参数说明：
+            - location（必填）：地图中心点坐标，"经度,纬度"
+            - zoom（选填）：地图缩放级别，1-17。1=全国，10=城市级别，14=街道级别，17=建筑级别
+              不填默认 14（适合查看街区周边）
+            - size（选填）：图片尺寸，格式"宽*高"，如"400*300"、"600*400"
+              不填默认"400*300"
+            - markers（选填）：在地图上标注的 POI 点，格式为"经度,纬度;经度,纬度..."
+              多个坐标用分号分隔，最多 10 个标注点
+              如："116.473168,39.993015;116.483168,39.983015"
+
+            返回说明：
+            本工具返回一个可直接在浏览器中打开的图片 URL。
+            收到 URL 后，请将链接直接发给用户，用户可点击查看地图。
+            同时应向用户简要描述地图展示的内容（中心位置、标注了哪些点）。
+
+            注意：生成的 URL 中已包含 API Key，属于内部链接，发送给用户不受影响。
+            """)
+    public String staticMap(String location, String zoom, String size, String markers) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/staticmap")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("location", location);
+
+            String zoomValue = (zoom != null && !zoom.isBlank()) ? zoom : "14";
+            urlBuilder.addQueryParameter("zoom", zoomValue);
+
+            String sizeValue = (size != null && !size.isBlank()) ? size : "400*300";
+            urlBuilder.addQueryParameter("size", sizeValue);
+
+            if (markers != null && !markers.isBlank()) {
+                // 构建标注样式: mid,0xFF0000,A:坐标1;坐标2
+                String markerParam = "mid,0xFF0000,A:" + markers.replace(";", ";");
+                urlBuilder.addQueryParameter("markers", markerParam);
+            }
+
+            String mapUrl = urlBuilder.build().toString();
+            log.info("高德静态地图生成，location={}，zoom={}，size={}，markers={}",
+                    location, zoomValue, sizeValue,
+                    markers == null || markers.isBlank() ? "无标注" : markers);
+
+            return "地图已生成，点击链接查看：\n"
+                    + mapUrl + "\n\n"
+                    + "中心坐标：" + location + "\n"
+                    + "缩放级别：" + zoomValue + "\n"
+                    + "图片尺寸：" + sizeValue
+                    + (markers != null && !markers.isBlank()
+                        ? "\n标注点：" + markers : "");
+        } catch (IllegalStateException e) {
+            throw new RuntimeException("高德静态地图生成失败：API Key 未配置", e);
+        }
+    }
+
+    //坐标转换
+    @Tool(value = """
+            将其他坐标系（如 GPS 原始坐标、百度坐标）转换为高德坐标系，或在不同坐标系间互转。
+
+            何时使用：
+            - 用户提供一个非高德来源的坐标（如手机 GPS 经纬度、其他地图的坐标）
+            - 从外部数据源获取的坐标在 searchAround/driving 中使用前需要转换
+            - 坐标在高德地图上显示位置与实际不符时需要转换
+
+            常见场景：
+            - 用户分享手机 GPS 定位："我在经度114.xxx，纬度22.xxx" → 先 convert 再使用
+            - 从百度地图复制的坐标 → coordsys="baidu"
+            - 从 Mapbar 地图获取的坐标 → coordsys="mapbar"
+
+            参数说明：
+            - locations（必填）：需要转换的坐标，多个坐标用"|"分隔。
+              格式："经度,纬度" 或 "经度,纬度;经度,纬度"
+              如："116.473168,39.993015" 或 "116.473168,39.993015;116.483168,39.983015"
+            - coordsys（选填）：源坐标系类型。
+              gps（GPS原始坐标，默认）、mapbar、baidu（百度坐标）、autonavi（高德坐标，无需转换）
+
+            注意：转换后的坐标可直接用于 searchAround、driving 等工具。
+            """)
+    public String coordinateConvert(String locations, String coordsys) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/assistant/coordinate/convert")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("locations", locations);
+
+            if (coordsys != null && !coordsys.isBlank()) {
+                urlBuilder.addQueryParameter("coordsys", coordsys);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德坐标转换，locations={}，coordsys={}",
+                    locations,
+                    coordsys == null || coordsys.isBlank() ? "默认(gps)" : coordsys);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德坐标转换失败", e);
         }
     }
 
