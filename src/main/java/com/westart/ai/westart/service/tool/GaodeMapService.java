@@ -33,7 +33,6 @@ import java.io.IOException;
 public class GaodeMapService {
 
     private static final String AMAP_BASE_URL = "restapi.amap.com";
-
     private final OkHttpClient okHttpClient;
 
     /**
@@ -51,30 +50,7 @@ public class GaodeMapService {
     }
 
     //地理编码
-    @Tool(value = """
-            将用户提供的文字地址转换为精确的经纬度坐标。这是获取用户精确位置的【首选工具】。
-
-            何时必须调用：
-            - 用户说"我在深圳南山区科技园"、"我家在朝阳区建国路88号"等文字地址
-            - 需要将地址转为坐标后才能进行周边搜索（searchAround）
-            - 用户提到具体地名/路名/小区名/商圈名/写字楼名且需要分析该区域时
-            - 任何需要精确经纬度的下游操作（周边分析、路线规划等）
-
-            参数说明：
-            - address（必填）：结构化地址字符串，越详细坐标越精确。
-              正确示例："深圳市南山区科技园南路"、"北京市朝阳区建国路88号"、"杭州西湖区文三路"
-              错误示例："深圳"（太模糊，只能定位城市中心）
-            - city（选填）：指定搜索城市，用于缩小范围提高命中率。
-              支持城市中文名（深圳）、citycode（0755）、adcode（440300）。
-              如果已经知道用户所在城市，强烈建议传入此参数。
-
-            典型用法：
-            - 用户说"我在科技园" → 先追问城市 → geocode("深圳市南山区科技园", "深圳") → 拿到坐标
-            - 用户说"朝阳区建国路88号" → geocode("北京市朝阳区建国路88号", "北京") → 拿到坐标
-            - 拿到坐标后，可以继续调用 searchAround 分析周边环境
-
-            注意：本工具不能替代用户的位置授权，需要用户主动提供地址信息。
-            """)
+    @Tool("地址转坐标。address=结构化地址（必填），city=城市限定（选填，中文名/citycode/adcode）")
     public String geocode(String address, String city) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -100,24 +76,7 @@ public class GaodeMapService {
     }
 
     //逆地理编码
-    @Tool(value = """
-            将经纬度坐标反查为人类可读的结构化地址描述。
-
-            何时使用：
-            - 有一个经纬度坐标，想知道这里具体是什么地方
-            - 需要补全某个坐标的完整地址信息（省/市/区/街道/门牌号）
-            - 需要知道某个坐标附近有哪些地标、商圈、POI
-            - 配合 searchAround 使用：先搜到一批 POI，对感兴趣的 POI 坐标调用 regeo 获取详细地址
-
-            参数说明：
-            - location（必填）：经纬度坐标，格式为"经度,纬度"。如："116.473168,39.993015"
-              经度在前，纬度在后，小数点不超过6位。
-
-            返回内容：
-            该坐标附近的完整地址（省份、城市、区县、街道、门牌号），以及周边的 AOI 和 POI 信息。
-
-            注意：逆地理编码返回的是距离坐标点最近的地址信息，而非精确到门牌号的匹配。
-            """)
+    @Tool("坐标转地址。location=经纬度，格式\"经度,纬度\"（必填）")
     public String regeo(String location) {
         try {
             String url = new HttpUrl.Builder()
@@ -140,31 +99,7 @@ public class GaodeMapService {
 
     //POI关键字搜索
 
-    @Tool(value = """
-            在城市或全国范围内按关键词搜索 POI（兴趣点），如奶茶店、星巴克、商场、地铁站等。
-
-            何时使用：
-            - 用户问"深圳有多少家星巴克"、"北京有什么好吃的川菜馆"
-            - 用户需要分析某个城市区域内某类商户的分布情况
-            - 用户问"XX附近有没有XX"，但尚未提供精确坐标时，可先用城市+关键词做初步搜索
-            - 商业分析场景：如"我想在深圳开奶茶店，帮我看看现有竞争情况"
-
-            参数说明：
-            - keywords（必填）：搜索关键词，如"奶茶店"、"咖啡厅"、"商场"、"地铁站"、"银行"。
-              规则：只支持一个关键词，如需搜索多个类型请分次调用。
-            - city（选填）：限定搜索的城市或区域。
-              支持：城市中文名（深圳）、citycode（0755）、adcode（440300）。
-              不填则为全国搜索，但结果可能不够精准，建议尽量填写。
-            - types（选填）：POI 分类编码或汉字分类，用于更精确的类型筛选。
-              如："050000"（餐饮服务）、"060000"（购物服务）、"170000"（科教文化服务）。
-              不填则由关键词自由匹配。
-              多个类型用竖线分隔，如："050000|060000"。
-
-            调用建议：
-            - 如果用户给了具体地址，优先用 geocode 获取坐标，再用 searchAround 做周边搜索（更精确）
-            - 如果用户只给了城市名，用本工具做城市级关键词搜索
-            - 商业分析时，建议同时搜索目标品类和配套品类（如奶茶店 + 商场 + 写字楼）
-            """)
+    @Tool("按关键词搜索兴趣点（旅游规划第一步用此工具搜景点）。keywords=关键词（必填），city=城市限定（选填），types=POI分类编码（选填，如050000=餐饮）")
     public String searchPOI(String keywords, String city, String types) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -196,33 +131,7 @@ public class GaodeMapService {
     }
 
     //POI周边搜索
-    @Tool(value = """
-            查询某个经纬度坐标周边指定范围内的 POI。
-
-            何时使用：
-            - 用户提供了精确地址并已通过 geocode 转换为坐标后，分析该位置周边环境
-            - 用户问"我附近有什么好吃的"、"这周围有停车场吗"
-            - 商业选址分析：拿到目标坐标后，搜索周边多大范围内有多少竞争对手/配套商户
-            - 需要分析某个具体地点的商圈成熟度、人流量潜力的场景
-
-            参数说明：
-            - location（必填）：中心点经纬度，格式为"经度,纬度"，如："116.473168,39.993015"。
-              通常由 geocode 转换得到。
-            - keywords（选填）：搜索关键词，如"餐厅"、"银行"、"加油站"。
-              不填则返回周边各类型 POI（默认涵盖餐饮、生活服务、商务住宅等）。
-            - radius（选填）：搜索半径，单位米，范围 0-50000，不填默认 5000。
-              建议：步行范围 500-1000，骑行范围 1000-3000，驾车范围 3000-10000。
-
-            典型调用链路：
-            1. 用户说"分析一下深圳南山区科技园适不适合开奶茶店"
-            2. 先调用 geocode("深圳市南山区科技园", "深圳") → 拿到坐标
-            3. 调用 searchAround(坐标, "奶茶店", "3000") → 周边 3km 竞品
-            4. 调用 searchAround(坐标, "商场", "5000") → 周边 5km 商场（人流参考）
-            5. 调用 searchAround(坐标, "写字楼", "3000") → 周边 3km 办公人群
-            6. 综合以上数据分析商业可行性
-
-            注意：必须已有坐标才能调用，如果用户只给了文字地址，请先用 geocode 转换。
-            """)
+    @Tool("搜索坐标周边兴趣点。location=中心点\"经度,纬度\"（必填），keywords=关键词（选填），radius=半径米（选填，默认5000，范围0-50000）")
     public String searchAround(String location, String keywords, String radius) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -253,29 +162,7 @@ public class GaodeMapService {
         }
     }
     //IP定位
-    @Tool(value = """
-            根据 IP 地址获取大致地理位置。仅支持国内 IPv4。
-
-            【重要限制——请务必仔细阅读】
-            1. 本工具定位精度仅为「城市级别」——最多知道用户可能在深圳、北京等城市范围内，
-               无法定位到具体街道、小区或门牌号。绝不适用于打车、导航、精确距离计算等场景。
-            2. 当不传 ip 参数时，调用方会自动使用"发起 HTTP 请求的来源 IP"进行定位。
-               在本系统中，所有请求均由服务器端发出，因此自动定位到的是服务器机房所在地，
-               而绝非用户的真实位置。
-            3. 因此：当且仅当用户明确提供了一个具体的 IP 地址字符串时（例如用户说
-               "帮我查一下 114.247.50.2 在哪"），本工具的返回结果才有意义。
-               其他所有情况（如用户问"我在哪"、"帮我定位"、"看看我附近有什么"），
-               都不能依赖本工具获取位置。
-
-            参数说明：
-            - ip（选填）：需要查询的 IPv4 地址。用户必须明确给出 IP 字符串才能传入。
-              如果不填，将使用服务器请求来源 IP，不指向用户。
-
-            正确的使用方式：
-            - 用户说"帮我查一下这个 IP：114.247.50.2" → locateIP("114.247.50.2") ✅
-            - 用户说"我在哪里" → 不能调用本工具，应主动询问用户所在城市 ❌
-            - 用户说"看看我附近有什么" → 不能调用本工具，应请用户提供地址后使用 geocode + searchAround ❌
-            """)
+    @Tool("IP定位，仅城市级精度、仅国内IPv4。ip=IPv4地址（选填，不填则用服务器IP，非用户位置）。仅用户明确给IP时使用")
     public String locateIP(String ip) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -294,6 +181,257 @@ public class GaodeMapService {
             return executeRequest(url);
         } catch (IOException e) {
             throw new RuntimeException("高德IP定位失败", e);
+        }
+    }
+
+    //驾车路线规划
+    @Tool("驾车路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），strategy=0速度优先/1避收费/2最短/3避高速（选填），waypoints=途经点\"lng1,lat1;lng2,lat2\"（选填，最多16个）")
+    public String driving(String origin, String destination, String strategy, String waypoints) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/driving")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .addQueryParameter("extensions", "all");
+
+            if (strategy != null && !strategy.isBlank()) {
+                urlBuilder.addQueryParameter("strategy", strategy);
+            }
+            if (waypoints != null && !waypoints.isBlank()) {
+                urlBuilder.addQueryParameter("waypoints", waypoints);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德驾车路线规划，origin={}，destination={}，strategy={}，waypoints={}",
+                    origin, destination,
+                    strategy == null || strategy.isBlank() ? "默认(速度优先)" : strategy,
+                    waypoints == null || waypoints.isBlank() ? "无途经点" : waypoints);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德驾车路线规划失败", e);
+        }
+    }
+
+    //公交路线规划
+    @Tool("公交/地铁路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），city=城市（必填），strategy=0最快捷/1最少换乘/2最少步行/3不乘地铁（选填）")
+    public String transit(String origin, String destination, String city, String strategy) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/transit/integrated")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .addQueryParameter("city", city)
+                    .addQueryParameter("extensions", "all");
+
+            if (strategy != null && !strategy.isBlank()) {
+                urlBuilder.addQueryParameter("strategy", strategy);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德公交路线规划，origin={}，destination={}，city={}，strategy={}",
+                    origin, destination, city,
+                    strategy == null || strategy.isBlank() ? "默认(最快捷)" : strategy);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德公交路线规划失败", e);
+        }
+    }
+
+    //步行路线规划
+    @Tool("步行路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填）")
+    public String walking(String origin, String destination) {
+        try {
+            String url = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/walking")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .build()
+                    .toString();
+
+            log.info("高德步行路线规划，origin={}，destination={}", origin, destination);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德步行路线规划失败", e);
+        }
+    }
+
+    //骑行路线规划
+    @Tool("骑行路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填）")
+    public String bicycling(String origin, String destination) {
+        try {
+            String url = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/direction/bicycling")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origin", origin)
+                    .addQueryParameter("destination", destination)
+                    .build()
+                    .toString();
+
+            log.info("高德骑行路线规划，origin={}，destination={}", origin, destination);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德骑行路线规划失败", e);
+        }
+    }
+
+    //距离测量
+    @Tool("距离测量。origins=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），type=0直线/1驾车/3步行（选填，默认0）")
+    public String distance(String origins, String destination, String type) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/distance")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("origins", origins)
+                    .addQueryParameter("destination", destination);
+
+            if (type != null && !type.isBlank()) {
+                urlBuilder.addQueryParameter("type", type);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德距离测量，origins={}，destination={}，type={}",
+                    origins, destination,
+                    type == null || type.isBlank() ? "默认(直线距离)" : type);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德距离测量失败", e);
+        }
+    }
+
+    //行政区域查询
+    @Tool("行政区域查询。keywords=区域名称（必填），subdistrict=下级层级0~3（选填，0=不返回/1=下一级/2=下两级/3=下三级）")
+    public String district(String keywords, String subdistrict) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/config/district")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("keywords", keywords)
+                    .addQueryParameter("extensions", "all");
+
+            if (subdistrict != null && !subdistrict.isBlank()) {
+                urlBuilder.addQueryParameter("subdistrict", subdistrict);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德行政区域查询，keywords={}，subdistrict={}",
+                    keywords,
+                    subdistrict == null || subdistrict.isBlank() ? "默认(0)" : subdistrict);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德行政区域查询失败", e);
+        }
+    }
+
+    //输入提示
+    @Tool("地址输入提示，返回候选列表（不返回坐标）。keywords=关键词（必填），city=城市限定（选填）")
+    public String inputTips(String keywords, String city) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/assistant/inputtips")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("keywords", keywords);
+
+            if (city != null && !city.isBlank()) {
+                urlBuilder.addQueryParameter("city", city);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德输入提示，keywords={}，city={}",
+                    keywords,
+                    city == null || city.isBlank() ? "未指定" : city);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德输入提示查询失败", e);
+        }
+    }
+
+    //静态地图
+    @Tool("生成静态地图图片链接。location=中心点\"经度,纬度\"（必填），zoom=1~17（选填，默认14），size=\"宽*高\"（选填，默认400*300），markers=标注点\"lng1,lat1;lng2,lat2\"（选填，最多10个）")
+    public String staticMap(String location, String zoom, String size, String markers) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/staticmap")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("location", location);
+
+            String zoomValue = (zoom != null && !zoom.isBlank()) ? zoom : "14";
+            urlBuilder.addQueryParameter("zoom", zoomValue);
+
+            String sizeValue = (size != null && !size.isBlank()) ? size : "400*300";
+            urlBuilder.addQueryParameter("size", sizeValue);
+
+            if (markers != null && !markers.isBlank()) {
+                // 构建标注样式: mid,0xFF0000,A:坐标1;坐标2
+                String markerParam = "mid,0xFF0000,A:" + markers.replace(";", ";");
+                urlBuilder.addQueryParameter("markers", markerParam);
+            }
+
+            String mapUrl = urlBuilder.build().toString();
+            log.info("高德静态地图生成，location={}，zoom={}，size={}，markers={}",
+                    location, zoomValue, sizeValue,
+                    markers == null || markers.isBlank() ? "无标注" : markers);
+
+            return "地图已生成，点击链接查看：\n"
+                    + mapUrl + "\n\n"
+                    + "中心坐标：" + location + "\n"
+                    + "缩放级别：" + zoomValue + "\n"
+                    + "图片尺寸：" + sizeValue
+                    + (markers != null && !markers.isBlank()
+                        ? "\n标注点：" + markers : "");
+        } catch (IllegalStateException e) {
+            throw new RuntimeException("高德静态地图生成失败：API Key 未配置", e);
+        }
+    }
+
+    //坐标转换
+    @Tool("坐标转换至目标系。locations=坐标串\"lng,lat|lng,lat\"（必填），coordsys=源坐标系gps/mapbar/baidu（选填，默认gps）")
+    public String coordinateConvert(String locations, String coordsys) {
+        try {
+            HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
+                    .scheme("https")
+                    .host(AMAP_BASE_URL)
+                    .addPathSegments("v3/assistant/coordinate/convert")
+                    .addQueryParameter("key", getApiKey())
+                    .addQueryParameter("locations", locations);
+
+            if (coordsys != null && !coordsys.isBlank()) {
+                urlBuilder.addQueryParameter("coordsys", coordsys);
+            }
+
+            String url = urlBuilder.build().toString();
+            log.info("高德坐标转换，locations={}，coordsys={}",
+                    locations,
+                    coordsys == null || coordsys.isBlank() ? "默认(gps)" : coordsys);
+
+            return executeRequest(url);
+        } catch (IOException e) {
+            throw new RuntimeException("高德坐标转换失败", e);
         }
     }
 

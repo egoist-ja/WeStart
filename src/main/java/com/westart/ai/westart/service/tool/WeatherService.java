@@ -3,6 +3,7 @@ package com.westart.ai.westart.service.tool;
 import com.westart.ai.westart.util.GenerateWeatherJWT;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -22,9 +23,9 @@ import java.security.spec.InvalidKeySpecException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WeatherService{
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WeatherService.class);
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;
 
@@ -49,7 +50,7 @@ public class WeatherService{
                     "API_HOST", "devapi.qweather.com");
 
             String url = "https://"+apiHost+ "/v7/weather/now?location=" + locationId;
-            LOGGER.info(url);
+            log.info(url);
             Request request = new Request.Builder()
                     .url(url)
                     .get()
