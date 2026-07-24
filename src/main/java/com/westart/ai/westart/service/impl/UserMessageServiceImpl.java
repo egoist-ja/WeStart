@@ -220,11 +220,13 @@ public class UserMessageServiceImpl implements UserMessageService {
             boolean replyWithVoice) {
         switch (segmentResult.type()) {
             case CHAT -> {
-                String reply = wechatAssistant.reply(prepareModelContents(segmentContents));
+                String reply = wechatAssistant.reply(
+                        sessionId,
+                        prepareModelContents(segmentContents));
                 if (reply == null || reply.isBlank()) {
                     log.error("AI模型返回了空回复，userId={}，segmentContentsSize={}",
                             userId, segmentContents.size());
-                    sendMessage(userId, MODEL_FAILURE_REPLY);
+                    sendMessage(client, sessionId,userId, MODEL_FAILURE_REPLY);
                     return;
                 }
                 if (replyWithVoice) {
@@ -235,6 +237,7 @@ public class UserMessageServiceImpl implements UserMessageService {
             }
             case IMAGE -> imageGenerateService.generateAndSendImages(
                     client,
+                    sessionId,
                     userId,
                     segmentContents,
                     segmentResult.context());

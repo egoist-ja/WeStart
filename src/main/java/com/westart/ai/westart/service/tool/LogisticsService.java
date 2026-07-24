@@ -1,6 +1,7 @@
 package com.westart.ai.westart.service.tool;
 
 import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.service.AiServices;
 import lombok.RequiredArgsConstructor;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;

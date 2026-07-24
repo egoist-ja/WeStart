@@ -6,6 +6,7 @@ import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.westart.ai.westart.DTO.ILinkClientSession;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.UserThreadService;
+import dev.langchain4j.data.message.ChatMessage;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;

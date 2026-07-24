@@ -41,6 +41,7 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
      * 根据消息内容生成图片，并将生成结果发送给指定微信用户。
      *
      * @param client 当前消息所属的iLink客户端
+     * @param sessionId iLink客户端会话ID
      * @param userId 微信用户ID
      * @param contents 当前图片任务引用的原始消息内容
      * @param context 路由模型补充的图片生成描述
@@ -48,9 +49,13 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
     @Override
     public void generateAndSendImages(
             ILinkClient client,
+            String sessionId,
             String userId,
             List<Content> contents,
             String context) {
+        if (StringUtils.isBlank(sessionId)) {
+            throw new IllegalArgumentException("sessionId不能为空");
+        }
         if (StringUtils.isBlank(userId)) {
             throw new IllegalArgumentException("userId不能为空");
         }
@@ -59,7 +64,7 @@ public class ImageGenerateServiceImpl implements ImageGenerateService {
         }
 
         List<Content> imageContents = prepareImageGenerationContents(contents, context);
-        List<Image> images = imageGenerator.generateImage(imageContents);
+        List<Image> images = imageGenerator.generateImage(sessionId, imageContents);
         sendGeneratedImages(client, userId, images);
     }
 
