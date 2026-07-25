@@ -21,7 +21,7 @@ import java.util.Objects;
 @Configuration(proxyBeanMethods = false)
 public class ChatMemoryConfig {
 
-    private static final int MAX_MEMORY_TOKENS = 800_000;
+    private static final int MAX_MEMORY_TOKENS = 50_000;
 
     /**
      * Qwen本地分词器，用于估算聊天记忆占用的Token数量。
@@ -39,6 +39,7 @@ public class ChatMemoryConfig {
     public ChatMemoryProvider redisChatMemoryProvider(
             RedisChatMemory redisChatMemory,
             TokenCountEstimator tokenCountEstimator) {
+
         return memoryId -> TokenWindowChatMemory.builder()
                 .id(memoryId)
                 .chatMemoryStore(redisChatMemory)
