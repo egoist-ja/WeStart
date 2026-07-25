@@ -96,10 +96,7 @@ public class WeChatLoginServiceImpl implements WeChatLoginService {
      * @param loginContext SDK登录上下文
      * @param throwable 登录异常
      */
-    private void completeLogin(
-            ILinkClientSession session,
-            LoginContext loginContext,
-            Throwable throwable) {
+    private void completeLogin(ILinkClientSession session, LoginContext loginContext,Throwable throwable) {
         String sessionId = session.sessionId();
         if (throwable != null) {
             log.error("微信扫码登录失败，sessionId={}", sessionId, throwable);

@@ -146,6 +146,7 @@ public class UserThreadServiceImpl implements UserThreadService {
 
                 String userId = firstMessage.getFrom_user_id();
                 startTyping(session.client(), userId, sessionId);
+                //收集消息批次
                 MessageBatch messageBatch = collectMessageBatch(session, firstMessage);
                 deferredMessage = messageBatch.deferredMessage();
                 delegateMessageBatch(

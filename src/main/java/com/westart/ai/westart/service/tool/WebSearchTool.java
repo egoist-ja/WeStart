@@ -3,6 +3,7 @@ package com.westart.ai.westart.service.tool;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -23,11 +24,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class WebSearchService{
+public class WebSearchTool{
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebSearchService.class);
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
     private static final DateTimeFormatter SEARCH_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -58,19 +59,19 @@ public class WebSearchService{
     public String searchWeb(@P("完整、具体的联网搜索问题或关键词") String query) {
         String normalizedQuery = normalizeQuery(query);
         if (normalizedQuery.isEmpty()) {
-            LOGGER.warn("跳过 UAPI 联网搜索：缺少有效的搜索关键词");
+            log.warn("跳过 UAPI 联网搜索：缺少有效的搜索关键词");
             return "联网搜索失败：缺少有效的搜索关键词。";
         }
 
         String apiKey = System.getenv("UAPI_KEY");
         if (apiKey == null || apiKey.isBlank()) {
-            LOGGER.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 为空");
+            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 为空");
             return "联网搜索工具尚未配置，无法查询实时信息。";
         }
 
         String loggedQuery = truncate(normalizedQuery, MAX_LOG_QUERY_LENGTH);
         long startNanos = System.nanoTime();
-        LOGGER.info("开始执行 UAPI 联网搜索，query={}", loggedQuery);
+        log.info("开始执行 UAPI 联网搜索，query={}", loggedQuery);
 
         try {
             Map<String, Object> requestPayload = new LinkedHashMap<>();
@@ -92,7 +93,7 @@ public class WebSearchService{
                 String body = responseBody == null ? "" : responseBody.string();
 
                 if (!response.isSuccessful()) {
-                    LOGGER.error("UAPI 联网搜索请求失败，query={}，HTTP {}，elapsedMs={}，响应：{}",
+                    log.error("UAPI 联网搜索请求失败，query={}，HTTP {}，elapsedMs={}，响应：{}",
                             loggedQuery, response.code(), elapsedMillis(startNanos),
                             truncate(cleanText(body), MAX_ERROR_BODY_LENGTH));
                     return "联网搜索失败：服务返回 HTTP 状态码 "
@@ -102,7 +103,7 @@ public class WebSearchService{
                 return formatSearchResults(normalizedQuery, body, startNanos);
             }
         } catch (IOException | RuntimeException e) {
-            LOGGER.error("UAPI 联网搜索请求或结果解析失败，query={}，elapsedMs={}",
+            log.error("UAPI 联网搜索请求或结果解析失败，query={}，elapsedMs={}",
                     loggedQuery, elapsedMillis(startNanos), e);
             return "联网搜索暂时不可用，无法确认实时信息。";
         }
@@ -126,7 +127,7 @@ public class WebSearchService{
         JsonNode root = objectMapper.readTree(responseBody);
         List<SearchResult> results = new ArrayList<>();
         addUapiResults(root.path("results"), results);
-        LOGGER.info("UAPI 联网搜索成功，query={}，resultCount={}，elapsedMs={}",
+        log.info("UAPI 联网搜索成功，query={}，resultCount={}，elapsedMs={}",
                 truncate(query, MAX_LOG_QUERY_LENGTH), results.size(), elapsedMillis(startNanos));
 
         if (results.isEmpty()) {

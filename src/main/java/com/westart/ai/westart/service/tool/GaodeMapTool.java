@@ -30,7 +30,7 @@ import java.io.IOException;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class GaodeMapService {
+public class GaodeMapTool {
 
     private static final String AMAP_BASE_URL = "restapi.amap.com";
 
