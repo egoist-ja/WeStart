@@ -8,12 +8,14 @@ import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;
 import io.micrometer.common.util.StringUtils;
+import opennlp.tools.parser.Cons;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * LangChain4j聊天记忆配置。
@@ -95,7 +97,8 @@ public class ChatMemoryConfig {
                 if (messages == null) {
                     return 0;
                 }
-
+                Consumer consumer1 = System.out::println;
+                Consumer consumer2 = message-> System.out.println(message);
                 List<ChatMessage> messageList = new ArrayList<>();
                 for (ChatMessage message : messages) {
                     messageList.add(Objects.requireNonNull(message, "message不能为空"));
