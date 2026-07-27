@@ -3,8 +3,12 @@ package com.westart.ai.westart.config;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.observability.api.event.AiServiceEvent;
+import dev.langchain4j.observability.api.listener.AiServiceListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.function.Consumer;
 
 @Configuration
 public class ModelConfig {
@@ -31,10 +35,10 @@ public class ModelConfig {
      */
     @Bean
     public QwenChatModel imageGenerateModel(){
+        
         return QwenChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
-                .modelName("qwen-image-2.0")
                 .build();
     }
 
