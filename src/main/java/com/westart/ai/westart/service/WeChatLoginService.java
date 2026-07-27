@@ -1,32 +1,32 @@
 package com.westart.ai.westart.service;
 
 import com.github.wechat.ilink.sdk.core.login.LoginStatus;
+import com.westart.ai.westart.DTO.LoginSessionResult;
 
 /**
- * 全局微信机器人账号注册与登录服务。
+ * 微信客户端会话注册与登录服务。
  */
 public interface WeChatLoginService {
 
     /**
-     * 为全局唯一的微信机器人发起扫码注册（登录授权）。
+     * 创建独立的微信客户端会话并发起扫码登录。
      *
-     * <p>该方法只注册机器人账号，普通聊天用户无需扫码登录。</p>
-     *
-     * @return 用于生成登录二维码的内容
+     * @return 登录会话标识及二维码内容
      */
-    String createLogin();
+    LoginSessionResult createLogin();
 
     /**
-     * 获取全局微信机器人的注册登录状态。
+     * 获取指定微信客户端会话的登录状态。
      *
+     * @param sessionId 登录会话唯一标识
      * @return 登录状态
      */
-    LoginStatus getLoginStatus();
+    LoginStatus getLoginStatus(String sessionId);
 
     /**
-     * 关闭当前微信客户端会话。
+     * 关闭指定微信客户端会话。
      *
-     * <p>底层SDK不支持关闭后复用同一个客户端重新登录。</p>
+     * @param sessionId 登录会话唯一标识
      */
-    void logout();
+    void logout(String sessionId);
 }

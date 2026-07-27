@@ -39,21 +39,6 @@ public class ModelConfig {
     }
 
     /**
-     * 消息路由模型
-     * @return
-     */
-    @Bean
-    public OpenAiChatModel routeModel(){
-        return OpenAiChatModel.builder()
-                .apiKey(System.getenv("QWEN_API_KEY"))
-                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
-                .modelName("qwen3.7-plus")
-                .logResponses(true)
-                .logRequests(true)
-                .build();
-    }
-
-    /**
      * 语音合成模型
      * @return
      */

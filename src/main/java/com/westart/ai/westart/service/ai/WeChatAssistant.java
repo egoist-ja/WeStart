@@ -1,6 +1,8 @@
 package com.westart.ai.westart.service.ai;
 
 import dev.langchain4j.data.message.Content;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.spring.AiService;
@@ -11,12 +13,13 @@ import java.util.List;
 @AiService(
     wiringMode= AiServiceWiringMode.EXPLICIT,
     chatModel="textAssistantModel",
+    chatMemoryProvider = "redisChatMemoryProvider",
     tools={
-            "weatherServiceImpl",
-            "logisticsServiceImpl",
-            "webSearchServiceImpl",
-            "fileFormatServiceImpl",
-            "dailyHotServiceImpl"
+            "weatherService",
+            "logisticsService",
+            "webSearchService",
+            "gaodeMapService",
+            "imageGenerateTool"
     }
 )
 public interface WeChatAssistant {
@@ -44,5 +47,7 @@ public interface WeChatAssistant {
             "- 回答实时问题时应写出具体日期，并尽可能保留重要来源链接。\n" +
             "- 如果你不知道答案，请诚实地回答“抱歉，这个问题我暂时还不了解”，不要编造事实（拒绝幻觉）。\n" +
             "- 如果用户的指令不清晰，请主动追问以澄清需求。")
-    String reply(@UserMessage List<Content> contents);
+    Result<String> reply(
+            @MemoryId String sessionId,
+            @UserMessage List<Content> contents);
 }

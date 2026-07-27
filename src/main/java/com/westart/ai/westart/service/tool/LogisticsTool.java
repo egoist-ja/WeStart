@@ -1,8 +1,9 @@
-package com.westart.ai.westart.service.impl;
+package com.westart.ai.westart.service.tool;
 
-import com.westart.ai.westart.service.LogisticsService;
 import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.service.AiServices;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -14,16 +15,15 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class LogisticsServiceImpl implements LogisticsService {
+public class LogisticsTool {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LogisticsServiceImpl.class);
     private static final String UAPI_BASE_URL = "uapis.cn";
 
     private final OkHttpClient okHttpClient;
 
-    @Override
     @Tool(value = "当用户需要查询快递物流信息时调用该工具。" +
         "trackingNumber表示快递单号（必填，通常是一串10-20位的数字或字母数字组合），" +
         "carrierCode表示快递公司编码（选填，不填则系统自动识别快递公司），" +
@@ -45,7 +45,7 @@ public class LogisticsServiceImpl implements LogisticsService {
             }
 
             String url = urlBuilder.build().toString();
-            LOGGER.info("查询快递物流，trackingNumber={}，carrierCode={}，phone={}",
+            log.info("查询快递物流，trackingNumber={}，carrierCode={}，phone={}",
                     trackingNumber,
                     carrierCode == null || carrierCode.isBlank() ? "自动识别" : carrierCode,
                     phone == null || phone.isBlank() ? "未提供" : phone);
@@ -67,11 +67,11 @@ public class LogisticsServiceImpl implements LogisticsService {
                 String body = responseBody == null ? "" : responseBody.string();
 
                 if (!response.isSuccessful()) {
-                    LOGGER.error("快递查询接口请求失败，HTTP {}: {}", response.code(), body);
+                    log.error("快递查询接口请求失败，HTTP {}: {}", response.code(), body);
                     throw new IOException("快递查询接口请求失败，HTTP "
                             + response.code() + ": " + body);
                 }
-                LOGGER.info("快递物流查询成功，trackingNumber={}", trackingNumber);
+                log.info("快递物流查询成功，trackingNumber={}", trackingNumber);
                 return body;
             }
 
