@@ -95,6 +95,12 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * 音频转 WAV。
      * WAV 格式直接透传；MP3 和 M4A 先解码为 PCM 再封装 WAV 头。
+     *
+     * 流程：
+     *   1. 判断输入格式
+     *   2. WAV → 直接返回原数据
+     *   3. MP3 → decodeMp3ToPcm：javax.sound 解码 MP3 → PCM → 封装 WAV
+     *   4. M4A → decodeM4aToPcm：jcodec 解复用 AAC 轨道 → 逐帧解码 → 封装 WAV
      */
     @Override
     public byte[] toWav(byte[] srcData, String srcMime) throws IOException {
@@ -113,6 +119,16 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * DOCX → PDF。
      * 先通过 POI 将 docx 解析为 Markdown 文本，再调用 uapis API 渲染 PDF。
+     *
+     * 流程：
+     *   1. 校验文件 MIME 类型是否为 docx
+     *   2. 将字节数组写入临时 .docx 文件（PDFBox/POI 需要 File 接口）
+     *   3. 用 POI（XWPFDocument）读取临时文件，逐元素解析为 Markdown 文本
+     *      - 段落 PARAGRAPH → Heading 样式转 # 标题，普通段落直接输出
+     *      - 表格 TABLE → 转为 Markdown 表格语法（| --- | 分隔行）
+     *   4. 将 Markdown POST 到 uapis.cn 的 markdown-to-pdf API
+     *   5. 返回 API 响应的 PDF 二进制流
+     *   6. 清理临时文件
      */
     @Override
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
@@ -123,59 +139,97 @@ public class FileFormatServiceImpl implements FileFormatService {
 
         File tmp = null;
         try {
+            // 步骤2：写入临时文件
             tmp = saveTemp(srcData, ".docx");
+            // 步骤3：docx → Markdown
             String markdown;
             try (FileInputStream fis = new FileInputStream(tmp)) {
                 markdown = docxToMarkdown(fis);
             }
+            // 步骤4：调用 API 渲染 PDF
             return callMarkdownToPdfApi(markdown, "github", "A4");
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             throw new IOException("Word转PDF失败", e);
         } finally {
+            // 步骤6：清理临时文件
             deleteFile(tmp);
         }
     }
 
     /**
-     * PDF → DOCX。
-     * 使用 PDFBox 提取文本，再通过 docx4j 生成 .docx 文件。
+     * TXT / Markdown / PDF → DOCX。
+     *
+     * 流程（按 MIME 类型分支）：
+     *   application/pdf       → PDFBox 提取文本 → docx4j 逐行写入
+     *   text/markdown         → 解析 Markdown 语法转为带样式 docx
+     *   text/plain            → 直接逐行写入 docx4j 段落
      */
     @Override
     public byte[] toDocx(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
-        if (!"application/pdf".equals(srcMime)) {
-            throw new IOException("不支持的格式: " + srcMime + "（仅支持 PDF）");
-        }
 
-        File tmp = null;
-        try {
-            tmp = saveTemp(srcData, ".pdf");
-            try (PDDocument doc = Loader.loadPDF(tmp)) {
-                PDFTextStripper stripper = new PDFTextStripper();
-                stripper.setSortByPosition(true);
-                stripper.setWordSeparator(" ");
-                String text = stripper.getText(doc);
+        return switch (srcMime) {
+            case "application/pdf" -> pdfToDocx(srcData);
+            case "text/markdown" -> mdToDocx(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
+            case "text/plain" -> txtToDocx(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
+            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 PDF / Markdown / TXT）");
+        };
+    }
 
-                org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
-                        org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
-                for (String line : text.split("\\r?\\n")) {
-                    if (line.trim().isEmpty()) continue;
-                    wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
-                }
+    /**
+     * TXT / DOCX / PDF → 纯文本。
+     *
+     * 流程（按 MIME 类型分支）：
+     *   text/plain            → 直接透传
+     *   text/markdown         → 剥离 Markdown 语法标记
+     *   application/pdf       → PDFBox 提取文本
+     *   application/vnd...doc → POI 提取段落和表格文本
+     */
+    @Override
+    public String toTxt(byte[] srcData, String srcMime) throws IOException {
+        if (srcData == null || srcData.length == 0 || srcMime == null) return null;
 
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                wordPkg.save(baos);
-                return baos.toByteArray();
+        return switch (srcMime) {
+            case "text/plain" -> new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+            case "text/markdown" -> mdToPlainText(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
+            case "application/pdf" -> extractPdfText(srcData);
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                    extractDocxText(srcData);
+            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 TXT / Markdown / PDF / DOCX）");
+        };
+    }
+
+    /**
+     * TXT / PDF → Markdown。
+     *
+     * 流程（按 MIME 类型分支）：
+     *   text/plain            → 直接透传
+     *   application/pdf       → PDFBox 提取文本 → 转为 Markdown
+     *   application/vnd...doc → POI 解析样式转为 Markdown（含标题、表格）
+     */
+    @Override
+    public String toMarkdown(byte[] srcData, String srcMime) throws IOException {
+        if (srcData == null || srcData.length == 0 || srcMime == null) return null;
+
+        return switch (srcMime) {
+            case "text/plain" -> new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+            case "text/markdown" -> new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+            case "application/pdf" -> {
+                String text = extractPdfText(srcData);
+                yield "# 转换文档\n\n" + text;
             }
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException("PDF转Word失败", e);
-        } finally {
-            deleteFile(tmp);
-        }
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> {
+                File tmp = saveTemp(srcData, ".docx");
+                try (FileInputStream fis = new FileInputStream(tmp)) {
+                    yield docxToMarkdown(fis);
+                } finally {
+                    deleteFile(tmp);
+                }
+            }
+            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 TXT / Markdown / PDF / DOCX）");
+        };
     }
 
     // ==================== 接口实现：Markdown → PDF（仅 API） ====================
@@ -213,13 +267,22 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * 调用 uapis.cn Markdown → PDF 接口。
      * POST /api/v1/text/markdown-to-pdf，返回 PDF 二进制流。
+     *
+     * 流程：
+     *   1. 读取环境变量 UAPIS_API_KEY
+     *   2. 构造 JSON 请求体：text（Markdown 内容）、theme（主题）、paper_size（纸张）
+     *   3. POST 请求 https://uapis.cn/api/v1/text/markdown-to-pdf
+     *   4. 校验 HTTP 状态码，读取响应体字节流
+     *   5. 返回 PDF 字节数组
      */
     private byte[] callMarkdownToPdfApi(String markdown, String theme, String paperSize) throws IOException {
+        // 步骤1：获取 API Key
         String apiKey = getUapiKey();
         if (apiKey == null) {
             throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
         }
 
+        // 步骤2：构造请求体
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of(
                         "text", markdown,
@@ -227,6 +290,7 @@ public class FileFormatServiceImpl implements FileFormatService {
                         "paper_size", paperSize));
         RequestBody body = RequestBody.create(
                 requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+        // 步骤3：发起 POST 请求
         Request request = new Request.Builder()
                 .url("https://uapis.cn/api/v1/text/markdown-to-pdf")
                 .header("Authorization", "Bearer " + apiKey)
@@ -238,6 +302,7 @@ public class FileFormatServiceImpl implements FileFormatService {
                 String err = resp.body() != null ? resp.body().string() : "";
                 throw new IOException("API 返回错误: " + resp.code() + " " + err);
             }
+            // 步骤4-5：读取 PDF 字节
             byte[] pdf = resp.body() != null ? resp.body().bytes() : null;
             if (pdf == null || pdf.length == 0) {
                 throw new IOException("API 返回空 PDF");
@@ -249,23 +314,30 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * 调用 uapis.cn Markdown → HTML 接口。
      * POST /api/v1/text/markdown-to-html。
-     * <ul>
-     *   <li>completePage=true：format=html，直接返回完整 HTML 页面</li>
-     *   <li>completePage=false：format=json，从响应 JSON 中提取 html 字段</li>
-     * </ul>
+     *
+     * 流程：
+     *   1. 读取环境变量 UAPIS_API_KEY
+     *   2. 构造 JSON 请求体：text（Markdown）、format（html/json）
+     *      - completePage=true  → format=html，接口直接返回完整 HTML 页面字符串
+     *      - completePage=false → format=json，接口返回 JSON，从 html 字段提取
+     *   3. POST 请求 https://uapis.cn/api/v1/text/markdown-to-html
+     *   4. 校验状态码，根据 format 参数返回 HTML 字符串
      */
     private String callMarkdownToHtmlApi(String markdown, boolean completePage) throws IOException {
+        // 步骤1：获取 API Key
         String apiKey = getUapiKey();
         if (apiKey == null) {
             throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
         }
 
+        // 步骤2：构造请求体
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of(
                         "text", markdown,
                         "format", completePage ? "html" : "json"));
         RequestBody body = RequestBody.create(
                 requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+        // 步骤3：发起 POST 请求
         Request request = new Request.Builder()
                 .url("https://uapis.cn/api/v1/text/markdown-to-html")
                 .header("Authorization", "Bearer " + apiKey)
@@ -277,6 +349,7 @@ public class FileFormatServiceImpl implements FileFormatService {
                 String err = resp.body() != null ? resp.body().string() : "";
                 throw new IOException("API 返回错误: " + resp.code() + " " + err);
             }
+            // 步骤4：根据 format 返回不同格式
             if (completePage) {
                 return resp.body() != null ? resp.body().string() : "";
             }
@@ -287,9 +360,7 @@ public class FileFormatServiceImpl implements FileFormatService {
     }
 
     private String getUapiKey() {
-        String key = System.getenv("UAPIS_API_KEY");
-        if (key != null && !key.isBlank()) return key;
-        return System.getenv("UAPI_KEY");
+        return System.getenv("UAPIS_API_KEY");
     }
 
     // ==================== @Tool 方法（AI 可调用） ====================
@@ -298,7 +369,7 @@ public class FileFormatServiceImpl implements FileFormatService {
      * AI 工具：从 Word 或 PDF 文档中提取纯文本。
      * 输入为 Base64 编码的文件数据，输出为提取的文本内容。
      */
-    @Tool(value = "当用户需要从Word文档(.docx)或PDF文件中提取文本内容时，调用此工具。" +
+    @Tool(value = "当用户需要从Word文档(.docx)、PDF、Markdown或TXT文件中提取纯文本内容时，调用此工具。" +
             "参数mimeType为文件类型，base64Data为文件的Base64编码数据。返回提取的纯文本内容。")
     public String extractDocumentText(String base64Data, String mimeType) throws IOException {
         if (base64Data == null || base64Data.isBlank()) {
@@ -311,14 +382,11 @@ public class FileFormatServiceImpl implements FileFormatService {
             return "错误：无效的Base64编码数据";
         }
 
-        return switch (mimeType) {
-            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
-                    extractDocxText(fileData);
-            case "application/pdf" ->
-                    extractPdfText(fileData);
-            default ->
-                    "不支持的文件格式: " + mimeType + "，仅支持 .docx 和 .pdf";
-        };
+        try {
+            return toTxt(fileData, mimeType);
+        } catch (IOException e) {
+            return "不支持的文件格式: " + mimeType + "，仅支持 .docx / .pdf / .md / .txt";
+        }
     }
 
     /**
@@ -361,12 +429,13 @@ public class FileFormatServiceImpl implements FileFormatService {
     public String getSupportedConversions() {
         return """
                 支持的文件格式转换：
-                1. Word (.docx) ↔ PDF
-                2. Markdown → PDF
-                3. Markdown → HTML
-                4. 音频文件 → WAV (.wav)
-                5. 支持的音频输入格式：MP3、M4A
-                6. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
+                1. TXT ↔ DOCX / Markdown / PDF
+                2. Markdown ↔ DOCX / TXT / PDF / HTML
+                3. DOCX ↔ TXT / Markdown / PDF
+                4. PDF ↔ TXT / Markdown / DOCX
+                5. 音频文件 → WAV (.wav)
+                6. 支持的音频输入格式：MP3、M4A
+                7. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
                 """;
     }
 
@@ -424,14 +493,24 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * MP3 → PCM → WAV。
      * 使用 javax.sound 解码 MP3，重采样为 16kHz 16bit 单声道 PCM，再封装 WAV 头。
+     *
+     * 流程：
+     *   1. 将 MP3 字节包装为 ByteArrayInputStream
+     *   2. AudioSystem.getAudioInputStream() 自动识别 MP3 格式并创建解码流
+     *   3. 构造目标格式：16kHz / 16bit / 单声道 / PCM_SIGNED / 小端序
+     *   4. AudioSystem.getAudioInputStream(target, ais) 重采样转换
+     *   5. AudioSystem.write() 自动封装 RIFF/WAVE 头部并写出完整 WAV 文件
+     *   6. 返回 WAV 字节数组
      */
     private byte[] decodeMp3ToPcm(byte[] mp3Data) throws IOException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(mp3Data);
              AudioInputStream ais = AudioSystem.getAudioInputStream(bais)) {
+            // 步骤3：目标 PCM 格式参数
             AudioFormat target = new AudioFormat(
                     AudioFormat.Encoding.PCM_SIGNED, 16000, 16, 1, 2, 16000, false);
             try (AudioInputStream converted = AudioSystem.getAudioInputStream(target, ais);
                  ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                // 步骤5：写出 WAV（含 RIFF + fmt + data 头）
                 AudioSystem.write(converted, AudioFileFormat.Type.WAVE, baos);
                 return baos.toByteArray();
             }
@@ -443,14 +522,25 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * M4A/AAC → PCM → WAV。
      * 使用 jcodec 库逐帧解码 AAC，重采样为 16kHz 16bit 单声道 PCM，再封装 WAV 头。
+     *
+     * 流程：
+     *   1. 将 M4A 字节写入临时 .m4a 文件（jcodec 需要 FileChannel 接口）
+     *   2. 用 RandomAccessFile + FileChannel 打开临时文件
+     *   3. MP4Demuxer 解复用 MP4 容器，获取音频轨道（AAC）
+     *   4. 从音频轨道读取第一帧，用其数据初始化 AACDecoder（解析 AAC 配置）
+     *   5. 循环读取后续所有音频帧，逐帧调用 AACDecoder.decodeFrame() 解码为 PCM
+     *   6. 将完整 PCM 裸数据传入 writeWav()，手动组装 RIFF/WAVE 头部（fmt + data 块）
+     *   7. 清理临时文件，返回完整 WAV 字节
      */
     private byte[] decodeM4aToPcm(byte[] m4aData) throws IOException {
         File tmp = null;
         try {
+            // 步骤1：写入临时文件
             tmp = saveTemp(m4aData, ".m4a");
             try (RandomAccessFile raf = new RandomAccessFile(tmp, "r");
                  FileChannel ch = raf.getChannel();
                  FileChannelWrapper fcw = new FileChannelWrapper(ch)) {
+                // 步骤3：解复用 MP4，获取 AAC 音频轨道
                 MP4Demuxer demuxer = MP4Demuxer.createMP4Demuxer(fcw);
                 List<DemuxerTrack> tracks = demuxer.getAudioTracks();
                 if (tracks.isEmpty()) throw new IOException("没有音频轨道");
@@ -459,14 +549,17 @@ public class FileFormatServiceImpl implements FileFormatService {
                 Packet first = track.nextFrame();
                 if (first == null) throw new IOException("没有音频帧");
 
+                // 步骤4：用第一帧初始化 AAC 解码器
                 AACDecoder decoder = new AACDecoder(first.getData());
                 ByteArrayOutputStream pcm = new ByteArrayOutputStream();
                 ByteBuffer buf = ByteBuffer.allocate(8192);
 
+                // 步骤5：逐帧解码
                 decodeFrame(decoder, first, buf, pcm);
                 Packet p;
                 while ((p = track.nextFrame()) != null) decodeFrame(decoder, p, buf, pcm);
 
+                // 步骤6：封装 WAV 头
                 return writeWav(pcm.toByteArray(), 16000);
             }
         } catch (IOException e) {
@@ -474,6 +567,7 @@ public class FileFormatServiceImpl implements FileFormatService {
         } catch (Exception e) {
             throw new IOException("M4A解码失败", e);
         } finally {
+            // 步骤7：清理临时文件
             deleteFile(tmp);
         }
     }
@@ -496,6 +590,22 @@ public class FileFormatServiceImpl implements FileFormatService {
     /**
      * 将 PCM 裸数据封装为标准 WAV 文件（RIFF/WAVE 格式）。
      *
+     * WAV 文件结构（44 字节头部 + PCM 数据）：
+     *   [0-3]    RIFF 标记 "RIFF"
+     *   [4-7]    文件总长度 - 8（小端 32bit）
+     *   [8-11]   WAVE 标记 "WAVE"
+     *   [12-15]  fmt  子块标记 "fmt "
+     *   [16-19]  fmt 子块长度（16 = PCM）
+     *   [20-21]  音频格式（1 = PCM）
+     *   [22-23]  声道数（1 = 单声道）
+     *   [24-27]  采样率（Hz）
+     *   [28-31]  字节率 = 采样率 × 声道数 × 位深/8
+     *   [32-33]  块对齐 = 声道数 × 位深/8
+     *   [34-35]  位深（16bit）
+     *   [36-39]  data 子块标记 "data"
+     *   [40-43]  PCM 数据长度
+     *   [44..]   PCM 音频数据
+     *
      * @param pcm        PCM 音频数据
      * @param sampleRate 采样率（Hz）
      * @return 完整的 WAV 文件字节
@@ -505,9 +615,11 @@ public class FileFormatServiceImpl implements FileFormatService {
         int byteRate = sampleRate * channels * bits / 8;
         int align = channels * bits / 8;
         ByteArrayOutputStream out = new ByteArrayOutputStream(44 + pcm.length);
+        // RIFF 头
         writeStr(out, "RIFF");
         writeLe32(out, 36 + pcm.length);
         writeStr(out, "WAVE");
+        // fmt 子块
         writeStr(out, "fmt ");
         writeLe32(out, 16);
         writeLe16(out, 1);
@@ -516,6 +628,7 @@ public class FileFormatServiceImpl implements FileFormatService {
         writeLe32(out, byteRate);
         writeLe16(out, align);
         writeLe16(out, bits);
+        // data 子块
         writeStr(out, "data");
         writeLe32(out, pcm.length);
         out.write(pcm);
@@ -538,11 +651,164 @@ public class FileFormatServiceImpl implements FileFormatService {
         out.write((v >> 8) & 0xFF);
     }
 
-    // ==================== DOCX → Markdown 解析 ====================
+    // ==================== TXT / MD ↔ DOCX 辅助方法 ====================
+
+    /**
+     * PDF → DOCX。
+     * PDFBox 提取文本 → docx4j 逐行写入。
+     *
+     * 流程：
+     *   1. 写入临时 .pdf 文件
+     *   2. PDFBox 按位置排序提取纯文本
+     *   3. docx4j 逐行添加段落
+     *   4. 保存为 .docx 字节流
+     */
+    private byte[] pdfToDocx(byte[] srcData) throws IOException {
+        File tmp = null;
+        try {
+            tmp = saveTemp(srcData, ".pdf");
+            try (PDDocument doc = Loader.loadPDF(tmp)) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                stripper.setSortByPosition(true);
+                stripper.setWordSeparator(" ");
+                String text = stripper.getText(doc);
+
+                org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
+                        org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
+                for (String line : text.split("\\r?\\n")) {
+                    if (line.trim().isEmpty()) continue;
+                    wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
+                }
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                wordPkg.save(baos);
+                return baos.toByteArray();
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("PDF转Word失败", e);
+        } finally {
+            deleteFile(tmp);
+        }
+    }
+
+    /**
+     * TXT → DOCX。
+     * 逐行写入 docx4j 段落。
+     */
+    private byte[] txtToDocx(String text) throws IOException {
+        try {
+            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
+                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
+            for (String line : text.split("\\r?\\n")) {
+                if (line.trim().isEmpty()) continue;
+                wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            wordPkg.save(baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new IOException("TXT转Word失败", e);
+        }
+    }
+
+    /**
+     * Markdown → DOCX。
+     * 解析 Markdown 语法，生成带样式的 Word 文档。
+     *
+     * 流程：
+     *   1. 逐行扫描 Markdown 文本
+     *   2. # ~ ###### 标题 → 对应 Heading 层级
+     *   3. - / * 无序列表 → 添加 bullet 段落
+     *   4. 普通文本 → 直接写入段落
+     *   5. ``` 代码块 → 按普通文本段落写入
+     */
+    private byte[] mdToDocx(String markdown) throws IOException {
+        try {
+            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
+                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
+            String[] lines = markdown.split("\\r?\\n");
+            boolean inCodeBlock = false;
+
+            for (String line : lines) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("```")) {
+                    inCodeBlock = !inCodeBlock;
+                    continue;
+                }
+                if (inCodeBlock || trimmed.isEmpty()) continue;
+
+                // Heading: # ~ ######
+                java.util.regex.Matcher headingMatcher =
+                        java.util.regex.Pattern.compile("^(#{1,6})\\s+(.*)").matcher(trimmed);
+                if (headingMatcher.matches()) {
+                    int level = headingMatcher.group(1).length();
+                    String content = headingMatcher.group(2);
+                    wordPkg.getMainDocumentPart().addParagraphOfText(content);
+                    continue;
+                }
+
+                // Unordered list: - or *
+                if (trimmed.matches("^[-*]\\s+.*")) {
+                    String content = trimmed.replaceAll("^[-*]\\s+", "");
+                    wordPkg.getMainDocumentPart().addParagraphOfText(content);
+                    continue;
+                }
+
+                // Regular paragraph
+                wordPkg.getMainDocumentPart().addParagraphOfText(trimmed);
+            }
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            wordPkg.save(baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new IOException("Markdown转Word失败", e);
+        }
+    }
+
+    /**
+     * Markdown → 纯文本。
+     * 剥离 Markdown 语法标记，仅保留可读文本。
+     *
+     * 流程：
+     *   1. 移除 ``` 代码块标记
+     *   2. 移除 # 标题标记
+     *   3. 移除 - / * 列表标记
+     *   4. 移除 ** / * / ` 等行内标记
+     *   5. 移除图片/链接语法，仅保留显示文本
+     */
+    private String mdToPlainText(String markdown) {
+        return markdown.lines()
+                .filter(l -> !l.trim().startsWith("```"))
+                .map(l -> l.replaceAll("^#{1,6}\\s+", "")
+                        .replaceAll("^[-*]\\s+", "")
+                        .replaceAll("\\*\\*(.*?)\\*\\*", "$1")
+                        .replaceAll("\\*(.*?)\\*", "$1")
+                        .replaceAll("`(.*?)`", "$1")
+                        .replaceAll("!\\[.*?\\]\\(.*?\\)", "")
+                        .replaceAll("\\[(.*?)\\]\\(.*?\\)", "$1")
+                        .strip())
+                .filter(l -> !l.isEmpty())
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse("");
+    }
 
     /**
      * 将 docx 文档解析为 Markdown 格式文本。
      * 支持段落、标题（Heading 样式 → # 标记）和表格（→ Markdown 表格语法）。
+     *
+     * 流程：
+     *   1. 用 POI（XWPFDocument）加载 docx 文件流
+     *   2. 遍历所有 body 元素
+     *      a. 段落 PARAGRAPH
+     *         - 空行 → 保留换行
+     *         - Heading 样式（如 "Heading1"）→ 解析层级 → 转为 # ~ ###### 标题
+     *         - 普通段落 → 直接输出文本
+     *      b. 表格 TABLE
+     *         - 逐行读取单元格文本 → 拼接为 Markdown 表格行 | a | b | c |
+     *         - 首行后自动添加分割行 | --- | --- | --- |
+     *   3. 返回拼接后的 Markdown 字符串
      */
     private String docxToMarkdown(FileInputStream docxStream) throws IOException {
         XWPFDocument doc = new XWPFDocument(docxStream);
@@ -556,6 +822,7 @@ public class FileFormatServiceImpl implements FileFormatService {
                     md.append("\n");
                     continue;
                 }
+                // 识别 Heading 样式，转为 Markdown 标题
                 if (p.getStyleID() != null && p.getStyleID().startsWith("Heading")) {
                     int level = 1;
                     try {
@@ -580,6 +847,7 @@ public class FileFormatServiceImpl implements FileFormatService {
                         cells.add(cell.getText().trim().replace("\n", " "));
                     }
                     md.append("| ").append(String.join(" | ", cells)).append(" |\n");
+                    // 首行下方插入分割行
                     if (!headerWritten) {
                         List<String> sep = new ArrayList<>();
                         for (int ci = 0; ci < cells.size(); ci++) sep.add("---");

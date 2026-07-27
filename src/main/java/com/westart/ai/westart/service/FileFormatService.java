@@ -7,7 +7,7 @@ import java.io.IOException;
  * <p>
  * 提供文档和音频文件的格式互转能力，包括：
  * <ul>
- *   <li>Word ↔ PDF 文档互转</li>
+ *   <li>TXT / Markdown / Word / PDF 文档互转</li>
  *   <li>Markdown → PDF / HTML 转换</li>
  *   <li>音频文件（MP3/M4A）→ WAV 转换</li>
  * </ul>
@@ -35,14 +35,39 @@ public interface FileFormatService {
     byte[] toPdf(byte[] srcData, String srcMime) throws IOException;
 
     /**
-     * 将 PDF 文件转换为 Word 文档（.docx）。
-     * <p>使用 PDFBox 提取文本，再通过 docx4j 生成 .docx 文件。</p>
+     * 将文件转换为 Word 文档（.docx）。
+     * <p>支持的源格式：PDF（PDFBox 提取文本 → docx4j 生成）、
+     * TXT（直接写入段落）、Markdown（解析标题/列表 → 带样式 docx）。</p>
      *
-     * @param srcData  PDF 文件字节
-     * @param srcMime  源 MIME 类型（仅支持 application/pdf）
+     * @param srcData  源文件字节
+     * @param srcMime  源 MIME 类型（application/pdf、text/plain、text/markdown）
      * @return .docx 文件字节
      */
     byte[] toDocx(byte[] srcData, String srcMime) throws IOException;
+
+    /**
+     * 将文件转换为纯文本（TXT）。
+     * <p>支持的源格式：Word docx（POI 提取段落文本）、PDF（PDFBox 提取）、
+     * Markdown（剥离语法标记）、TXT（直接透传）。</p>
+     *
+     * @param srcData  源文件字节
+     * @param srcMime  源 MIME 类型（application/vnd.openxmlformats-officedocument.wordprocessingml.document、
+     *                 application/pdf、text/markdown、text/plain）
+     * @return 纯文本内容字符串
+     */
+    String toTxt(byte[] srcData, String srcMime) throws IOException;
+
+    /**
+     * 将文件转换为 Markdown 文本。
+     * <p>支持的源格式：Word docx（POI 解析样式生成 Markdown）、
+     * TXT（直接透传）、PDF（PDFBox 提取后转为 Markdown）。</p>
+     *
+     * @param srcData  源文件字节
+     * @param srcMime  源 MIME 类型（application/vnd.openxmlformats-officedocument.wordprocessingml.document、
+     *                 text/plain、application/pdf）
+     * @return Markdown 格式文本
+     */
+    String toMarkdown(byte[] srcData, String srcMime) throws IOException;
 
     /**
      * 将 Markdown 文本直接转换为 PDF 字节流。

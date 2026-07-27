@@ -1,6 +1,6 @@
 package com.westart.ai.westart.controller;
 
-import com.westart.ai.westart.service.tool.WeatherService;
+import com.westart.ai.westart.service.tool.WeatherTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @RequiredArgsConstructor
 public class WeatherController {
 
-    private final WeatherService weatherService;
+    private final WeatherTool weatherService;
 
     @GetMapping("/current")
     @ResponseBody

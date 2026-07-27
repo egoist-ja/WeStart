@@ -6,6 +6,7 @@ import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.VoiceGenerateService;
+import com.westart.ai.westart.service.tool.FileFormatTool;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.Content;
@@ -45,6 +46,7 @@ public class UserMessageServiceImpl implements UserMessageService {
     private final WeChatAssistant wechatAssistant;
     private final VoiceGenerateService voiceGenerateService;
     private final OkHttpClient okHttpClient;
+    private final FileFormatTool fileFormatTool;
 
     /**
      * 向指定微信用户发送文本消息。
@@ -123,7 +125,7 @@ public class UserMessageServiceImpl implements UserMessageService {
                 log.info("微信消息批次不包含可处理内容，sessionId={}，userId={}", sessionId, userId);
                 return;
             }
-            Result<String> result = wechatAssistant.reply(sessionId, prepareModelContents(contents));
+            Result<String> result = wechatAssistant.reply(userId, prepareModelContents(contents));
             boolean imageSent = sendGeneratedImages(client, sessionId, userId, result.toolExecutions());
             if (!StringUtils.isBlank(result.content())) {
                 if (replyWithVoice) {
@@ -183,6 +185,12 @@ public class UserMessageServiceImpl implements UserMessageService {
             if (item.getVideo_item() != null) {
                 log.info("忽略微信视频消息，userId={}", message.getFrom_user_id());
                 return null;
+            }
+            if (item.getFile_item() != null) {
+                TextContent fileContent = fileFormatTool.processIncomingFile(
+                        client, message.getFrom_user_id(), item);
+                if (fileContent != null) return fileContent;
+                continue;
             }
         }
 
