@@ -21,10 +21,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.security.spec.InvalidKeySpecException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
-public class WeatherService{
+public class WeatherTool{
 
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;

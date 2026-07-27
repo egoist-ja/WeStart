@@ -1,6 +1,8 @@
 package com.westart.ai.westart.service.ai;
 
 import dev.langchain4j.data.message.Content;
+import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.spring.AiService;
@@ -11,11 +13,13 @@ import java.util.List;
 @AiService(
     wiringMode= AiServiceWiringMode.EXPLICIT,
     chatModel="textAssistantModel",
+    chatMemoryProvider = "redisChatMemoryProvider",
     tools={
             "weatherService",
             "logisticsService",
             "webSearchService",
-            "gaodeMapService"
+            "gaodeMapService",
+            "imageGenerateTool"
     }
 )
 public interface WeChatAssistant {
@@ -44,5 +48,7 @@ public interface WeChatAssistant {
             "- 当问题涉及真实地理位置、旅游出行、路线规划、选址分析等需要外部数据的场景时，必须调用对应工具获取实际数据后再回答，不得仅凭训练知识编造。\n" +
             "- 如果你不知道答案，请诚实地回答「抱歉，这个问题我暂时还不了解」，不要编造事实（拒绝幻觉）。\n" +
             "- 如果用户的指令不清晰，请主动追问以澄清需求。")
-    String reply(@UserMessage List<Content> contents);
+    Result<String> reply(
+            @MemoryId String sessionId,
+            @UserMessage List<Content> contents);
 }

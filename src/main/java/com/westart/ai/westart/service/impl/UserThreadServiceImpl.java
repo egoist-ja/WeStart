@@ -6,6 +6,7 @@ import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.westart.ai.westart.DTO.ILinkClientSession;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.UserThreadService;
+import dev.langchain4j.data.message.ChatMessage;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -145,6 +146,7 @@ public class UserThreadServiceImpl implements UserThreadService {
 
                 String userId = firstMessage.getFrom_user_id();
                 startTyping(session.client(), userId, sessionId);
+                //收集消息批次
                 MessageBatch messageBatch = collectMessageBatch(session, firstMessage);
                 deferredMessage = messageBatch.deferredMessage();
                 delegateMessageBatch(

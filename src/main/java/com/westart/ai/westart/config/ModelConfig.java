@@ -3,8 +3,6 @@ package com.westart.ai.westart.config;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -37,21 +35,6 @@ public class ModelConfig {
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
                 .modelName("qwen-image-2.0")
-                .build();
-    }
-
-    /**
-     * 消息路由模型
-     * @return
-     */
-    @Bean
-    public OpenAiChatModel routeModel(){
-        return OpenAiChatModel.builder()
-                .apiKey(System.getenv("QWEN_API_KEY"))
-                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
-                .modelName("qwen3.7-plus")
-                .logResponses(true)
-                .logRequests(true)
                 .build();
     }
 

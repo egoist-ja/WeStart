@@ -4,20 +4,22 @@ import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.exception.ILinkException;
 import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
-import com.westart.ai.westart.DTO.MessageContent;
-import com.westart.ai.westart.DTO.SegmentResult;
-import com.westart.ai.westart.service.ImageGenerateService;
-import com.westart.ai.westart.service.MessageRouteService;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.VoiceGenerateService;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
-import com.westart.ai.westart.service.domain.RouteType;
+import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
+import dev.langchain4j.service.Result;
+import dev.langchain4j.service.tool.ToolExecution;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -25,10 +27,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
- * 用户消息服务实现，负责解析消息批次、调用消息路由并分发到对应AI服务。
+ * 用户消息服务实现，负责解析消息批次、调用微信助手并发送处理结果。
  */
 @Service
 @Slf4j
@@ -36,17 +37,14 @@ import java.util.Optional;
 public class UserMessageServiceImpl implements UserMessageService {
 
     private static final String DEFAULT_IMAGE_PROMPT = "请分析用户发送的图片并给出有帮助的回答。";
-    private static final String DEFAULT_IMAGE_CLARIFICATION =
-            "请补充希望生成的图片主体、场景或具体用途后，再发送完整的图片生成请求。";
     private static final String EMPTY_VOICE_TRANSCRIPTION_REPLY =
             "语音消息未包含可用的转写内容呢，再试一遍吧？";
     private static final String MODEL_FAILURE_REPLY = "消息处理失败，请稍后重试。";
 
     private final ILinkClientSessionRegistry sessionRegistry;
     private final WeChatAssistant wechatAssistant;
-    private final MessageRouteService messageRouteService;
-    private final ImageGenerateService imageGenerateService;
     private final VoiceGenerateService voiceGenerateService;
+    private final OkHttpClient okHttpClient;
 
     /**
      * 向指定微信用户发送文本消息。
@@ -69,11 +67,8 @@ public class UserMessageServiceImpl implements UserMessageService {
      * @param userId 微信用户ID
      * @param content 消息内容
      */
-    private void sendMessage(
-            ILinkClient client,
-            String sessionId,
-            String userId,
-            String content) {
+    private void sendMessage(ILinkClient client, String sessionId,
+            String userId, String content) {
         if (StringUtils.isBlank(userId)) {
             throw new IllegalArgumentException("userId不能为空");
         }
@@ -117,32 +112,27 @@ public class UserMessageServiceImpl implements UserMessageService {
         ILinkClient client = sessionRegistry.getRequired(sessionId).client();
         try {
             boolean replyWithVoice = containsVoiceMessage(batchMessages);
-            List<MessageContent> messageContents = buildBatchContents(client, batchMessages);
-            if (messageContents.isEmpty()) {
+            List<Content> contents = batchMessages.stream()
+                    .map(message -> buildUserMessage(client, message))
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (contents.isEmpty()) {
                 if (replyWithVoice) {
-                    sendMessage(
-                            client,
-                            sessionId,
-                            userId,
-                            EMPTY_VOICE_TRANSCRIPTION_REPLY);
+                    sendMessage(client, sessionId, userId, EMPTY_VOICE_TRANSCRIPTION_REPLY);
                 }
-                log.info(
-                        "微信消息批次不包含可处理内容，sessionId={}，userId={}",
-                        sessionId,
-                        userId);
+                log.info("微信消息批次不包含可处理内容，sessionId={}，userId={}", sessionId, userId);
                 return;
             }
-
-            List<SegmentResult> segmentResults =
-                    messageRouteService.classifyMessages(userId, messageContents);
-            for (SegmentResult segmentResult : segmentResults) {
-                processSegmentSafely(
-                        client,
-                        sessionId,
-                        userId,
-                        messageContents,
-                        segmentResult,
-                        replyWithVoice);
+            Result<String> result = wechatAssistant.reply(sessionId, prepareModelContents(contents));
+            boolean imageSent = sendGeneratedImages(client, sessionId, userId, result.toolExecutions());
+            if (!StringUtils.isBlank(result.content())) {
+                if (replyWithVoice) {
+                    voiceGenerateService.generateAndSendVoice(client, userId, result.content());
+                } else {
+                    sendMessage(client, sessionId, userId, result.content());
+                }
+            } else if (!imageSent) {
+                throw new IllegalStateException("AI模型未返回有效回复");
             }
         } catch (RuntimeException exception) {
             log.error(
@@ -155,130 +145,22 @@ public class UserMessageServiceImpl implements UserMessageService {
     }
 
     /**
-     * 安全处理单个路由片段，避免一个片段失败影响同批次的其他片段。
-     *
-     * @param client 当前消息所属的iLink客户端
-     * @param sessionId iLink客户端会话ID
-     * @param userId 微信用户ID
-     * @param messageContents 当前批次的索引化消息
-     * @param segmentResult 语义路由片段
-     * @param replyWithVoice 是否使用语音回复
-     */
-    private void processSegmentSafely(
-            ILinkClient client,
-            String sessionId,
-            String userId,
-            List<MessageContent> messageContents,
-            SegmentResult segmentResult,
-            boolean replyWithVoice) {
-        try {
-            if (segmentResult.type() == RouteType.IMAGE && !segmentResult.executable()) {
-                String clarification = StringUtils.isBlank(segmentResult.clarification())
-                        ? DEFAULT_IMAGE_CLARIFICATION
-                        : segmentResult.clarification();
-                sendMessage(client, sessionId, userId, clarification);
-                return;
-            }
-
-            List<Content> segmentContents = messageRouteService.selectSegmentContents(
-                    messageContents,
-                    segmentResult.content());
-            processRouteSegment(
-                    client,
-                    sessionId,
-                    userId,
-                    segmentContents,
-                    segmentResult,
-                    replyWithVoice);
-        } catch (RuntimeException exception) {
-            log.error(
-                    "微信消息路由片段处理失败，sessionId={}，userId={}，routeType={}",
-                    sessionId,
-                    userId,
-                    segmentResult.type(),
-                    exception);
-            sendFailureReply(client, sessionId, userId);
-        }
-    }
-
-    /**
-     * 根据路由类型将单个语义片段分发给对应服务。
-     *
-     * @param client 当前消息所属的iLink客户端
-     * @param sessionId iLink客户端会话ID
-     * @param userId 微信用户ID
-     * @param segmentContents 当前语义片段内容
-     * @param segmentResult 语义路由片段
-     * @param replyWithVoice 是否使用语音回复
-     */
-    private void processRouteSegment(
-            ILinkClient client,
-            String sessionId,
-            String userId,
-            List<Content> segmentContents,
-            SegmentResult segmentResult,
-            boolean replyWithVoice) {
-        switch (segmentResult.type()) {
-            case CHAT -> {
-                String reply = wechatAssistant.reply(prepareModelContents(segmentContents));
-                if (reply == null || reply.isBlank()) {
-                    log.error("AI模型返回了空回复，userId={}，segmentContentsSize={}",
-                            userId, segmentContents.size());
-                    sendMessage(client, sessionId,userId, MODEL_FAILURE_REPLY);
-                    return;
-                }
-                if (replyWithVoice) {
-                    voiceGenerateService.generateAndSendVoice(client, userId, reply);
-                } else {
-                    sendMessage(client, sessionId, userId, reply);
-                }
-            }
-            case IMAGE -> imageGenerateService.generateAndSendImages(
-                    client,
-                    userId,
-                    segmentContents,
-                    segmentResult.context());
-            case VIDEO -> log.info("暂不处理微信视频生成请求，userId={}", userId);
-        }
-    }
-
-    /**
-     * 将完整消息批次转换为带原始消息索引的模型内容。
-     *
-     * @param client 当前消息所属的iLink客户端
-     * @param batchMessages 原始微信消息批次
-     * @return 按原始顺序排列的索引化多模态内容
-     */
-    private List<MessageContent> buildBatchContents(
-            ILinkClient client,
-            List<WeixinMessage> batchMessages) {
-        List<MessageContent> contents = new ArrayList<>(batchMessages.size());
-        for (int index = 0; index < batchMessages.size(); index++) {
-            Optional<Content> content = buildUserMessage(client, batchMessages.get(index));
-            if (content.isPresent()) {
-                contents.add(new MessageContent(index, content.get()));
-            }
-        }
-        return List.copyOf(contents);
-    }
-
-    /**
      * 根据iLink消息项类型构建单条模型内容。
      *
      * @param client 当前消息所属的iLink客户端
      * @param message iLink原始微信消息
-     * @return 可处理的模型内容；消息无效或类型不受支持时返回空
+     * @return 可处理的模型内容；消息无效或类型不受支持时返回null
      */
-    private Optional<Content> buildUserMessage(
+    private Content buildUserMessage(
             ILinkClient client,
             WeixinMessage message) {
         if (message == null) {
-            return Optional.empty();
+            return null;
         }
         List<MessageItem> itemList = message.getItem_list();
         if (itemList == null || itemList.isEmpty()) {
             log.warn("微信消息不包含消息项，messageId={}", message.getMessage_id());
-            return Optional.empty();
+            return null;
         }
 
         for (MessageItem item : itemList) {
@@ -288,7 +170,7 @@ public class UserMessageServiceImpl implements UserMessageService {
             if (item.getText_item() != null) {
                 String text = item.getText_item().getText();
                 if (!StringUtils.isBlank(text)) {
-                    return Optional.of(TextContent.from(text.trim()));
+                    return TextContent.from(text.trim());
                 }
                 continue;
             }
@@ -300,7 +182,7 @@ public class UserMessageServiceImpl implements UserMessageService {
             }
             if (item.getVideo_item() != null) {
                 log.info("忽略微信视频消息，userId={}", message.getFrom_user_id());
-                return Optional.empty();
+                return null;
             }
         }
 
@@ -308,7 +190,7 @@ public class UserMessageServiceImpl implements UserMessageService {
                 "忽略不支持的微信消息，userId={}，messageId={}",
                 message.getFrom_user_id(),
                 message.getMessage_id());
-        return Optional.empty();
+        return null;
     }
 
     /**
@@ -317,9 +199,9 @@ public class UserMessageServiceImpl implements UserMessageService {
      * @param client 当前消息所属的iLink客户端
      * @param userId 微信用户ID
      * @param item 包含图片信息的消息项
-     * @return 图片模型内容；下载失败或图片无效时返回空
+     * @return 图片模型内容；下载失败或图片无效时返回null
      */
-    private Optional<Content> buildImageContent(
+    private Content buildImageContent(
             ILinkClient client,
             String userId,
             MessageItem item) {
@@ -327,15 +209,15 @@ public class UserMessageServiceImpl implements UserMessageService {
             byte[] imageBytes = client.downloadImageFromMessageItem(item);
             if (imageBytes == null || imageBytes.length == 0) {
                 log.warn("收到空的微信图片消息，userId={}", userId);
-                return Optional.empty();
+                return null;
             }
             String mimeType = detectImageMimeType(imageBytes);
             String base64Data = Base64.getEncoder().encodeToString(imageBytes);
             log.info("微信图片下载成功，userId={}，imageSize={}", userId, imageBytes.length);
-            return Optional.of(ImageContent.from(base64Data, mimeType));
+            return ImageContent.from(base64Data, mimeType);
         } catch (IOException | ILinkException | IllegalArgumentException exception) {
             log.error("下载微信图片失败，userId={}", userId, exception);
-            return Optional.empty();
+            return null;
         }
     }
 
@@ -344,13 +226,13 @@ public class UserMessageServiceImpl implements UserMessageService {
      *
      * @param userId 微信用户ID
      * @param item 包含语音转写结果的消息项
-     * @return 语音转写文本；转写结果为空时返回空
+     * @return 语音转写文本；转写结果为空时返回null
      */
-    private Optional<Content> buildVoiceContent(String userId, MessageItem item) {
+    private Content buildVoiceContent(String userId, MessageItem item) {
         String transcription = item.getVoice_item().getText();
         if (StringUtils.isBlank(transcription)) {
             log.warn("微信语音消息未包含转写文本，userId={}", userId);
-            return Optional.empty();
+            return null;
         }
 
         String normalizedTranscription = transcription.trim();
@@ -358,7 +240,7 @@ public class UserMessageServiceImpl implements UserMessageService {
                 "微信语音转文字成功，userId={}，textLength={}",
                 userId,
                 normalizedTranscription.length());
-        return Optional.of(TextContent.from(normalizedTranscription));
+        return TextContent.from(normalizedTranscription);
     }
 
     /**
@@ -451,6 +333,101 @@ public class UserMessageServiceImpl implements UserMessageService {
             }
         }
         return true;
+    }
+
+    /**
+     * 发送图片生成工具返回的图片。
+     *
+     * @param client 当前消息所属的iLink客户端
+     * @param sessionId iLink客户端会话ID
+     * @param userId 微信用户ID
+     * @param toolExecutions 工具执行结果
+     * @return 至少发送一张图片时返回true
+     */
+    private boolean sendGeneratedImages(
+            ILinkClient client,
+            String sessionId,
+            String userId,
+            List<ToolExecution> toolExecutions) {
+        if (toolExecutions == null || toolExecutions.isEmpty()) {
+            return false;
+        }
+
+        boolean imageSent = false;
+        for (ToolExecution execution : toolExecutions) {
+            if (execution == null
+                    || execution.hasFailed()
+                    || execution.request() == null
+                    || !"generateImage".equals(execution.request().name())) {
+                continue;
+            }
+            if (!(execution.resultObject() instanceof List<?> resultList)) {
+                throw new IllegalStateException("图片生成工具返回了无效结果");
+            }
+            for (int index = 0; index < resultList.size(); index++) {
+                Object resultItem = resultList.get(index);
+                if (!(resultItem instanceof Image image)) {
+                    throw new IllegalStateException("图片生成工具返回了无效图片");
+                }
+                byte[] imageBytes = resolveGeneratedImageBytes(image);
+                String fileName = "generated-image-" + (index + 1) + ".png";
+                try {
+                    client.sendImage(userId, imageBytes, fileName, null);
+                    imageSent = true;
+                    log.info(
+                            "微信生成图片发送成功，sessionId={}，userId={}，imageSize={}",
+                            sessionId,
+                            userId,
+                            imageBytes.length);
+                } catch (IOException | ILinkException exception) {
+                    throw new IllegalStateException(
+                            "微信生成图片发送失败，sessionId="
+                                    + sessionId
+                                    + "，userId="
+                                    + userId,
+                            exception);
+                }
+            }
+        }
+        return imageSent;
+    }
+
+    /**
+     * 获取图片生成结果的二进制数据。
+     *
+     * @param image 图片生成结果
+     * @return 图片二进制数据
+     */
+    private byte[] resolveGeneratedImageBytes(Image image) {
+        if (!StringUtils.isBlank(image.base64Data())) {
+            try {
+                return Base64.getDecoder().decode(image.base64Data());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalStateException("图片生成模型返回了无效的Base64数据", exception);
+            }
+        }
+        if (image.url() == null) {
+            throw new IllegalStateException("图片生成结果不包含URL或Base64数据");
+        }
+
+        Request request = new Request.Builder()
+                .url(image.url().toString())
+                .get()
+                .build();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            if (!response.isSuccessful() || responseBody == null) {
+                throw new IllegalStateException(
+                        "下载生成图片失败，HTTP状态码=" + response.code());
+            }
+            byte[] imageBytes = responseBody.bytes();
+            if (imageBytes.length == 0) {
+                throw new IllegalStateException("下载生成图片失败，图片内容为空");
+            }
+            return imageBytes;
+        } catch (IOException exception) {
+            throw new IllegalStateException("下载生成图片失败，url=" + image.url(), exception);
+        }
     }
 
     /**
