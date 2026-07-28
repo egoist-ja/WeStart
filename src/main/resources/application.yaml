@@ -1,17 +1,38 @@
 spring:
   application:
     name: westart
+  datasource:
+    url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: root
+    password: your_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
   threads:
     virtual:
       enabled: true
-  data:
-    redis:
-      url: ${REDIS_URL:redis://127.0.0.1:6379}
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+websearch:
+  api-key: ${UAPIS_API_KEY:}
+  api-url: ${UAPI_SEARCH_API_URL:https://uapis.cn/api/v1/search/aggregate}
 
 app:
   temp:
     images:
       dir: ./temp/images
-websearch:
-  api-key: ${UAPI_KEY:}
-  api-url: ${UAPI_SEARCH_API_URL:https://uapis:cn/api/v1/search/aggregate}
