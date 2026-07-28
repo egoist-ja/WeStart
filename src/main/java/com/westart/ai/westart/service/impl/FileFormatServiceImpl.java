@@ -1,7 +1,6 @@
 package com.westart.ai.westart.service.impl;
 
 import com.westart.ai.westart.service.FileFormatService;
-import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -133,29 +132,35 @@ public class FileFormatServiceImpl implements FileFormatService {
     @Override
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
-        if (!"application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(srcMime)) {
-            throw new IOException("不支持的格式: " + srcMime + "（仅支持 .docx）");
-        }
 
-        File tmp = null;
-        try {
-            // 步骤2：写入临时文件
-            tmp = saveTemp(srcData, ".docx");
-            // 步骤3：docx → Markdown
-            String markdown;
-            try (FileInputStream fis = new FileInputStream(tmp)) {
-                markdown = docxToMarkdown(fis);
+        return switch (srcMime) {
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> {
+                File tmp = null;
+                try {
+                    tmp = saveTemp(srcData, ".docx");
+                    String markdown;
+                    try (FileInputStream fis = new FileInputStream(tmp)) {
+                        markdown = docxToMarkdown(fis);
+                    }
+                    yield callMarkdownToPdfApi(markdown, "github", "A4");
+                } catch (IOException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new IOException("Word转PDF失败", e);
+                } finally {
+                    deleteFile(tmp);
+                }
             }
-            // 步骤4：调用 API 渲染 PDF
-            return callMarkdownToPdfApi(markdown, "github", "A4");
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException("Word转PDF失败", e);
-        } finally {
-            // 步骤6：清理临时文件
-            deleteFile(tmp);
-        }
+            case "text/plain" -> {
+                String text = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+                yield callMarkdownToPdfApi(text, "github", "A4");
+            }
+            case "text/markdown" -> {
+                String md = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+                yield callMarkdownToPdfApi(md, "github", "A4");
+            }
+            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 DOCX / TXT / Markdown）");
+        };
     }
 
     /**
@@ -363,81 +368,7 @@ public class FileFormatServiceImpl implements FileFormatService {
         return System.getenv("UAPIS_API_KEY");
     }
 
-    // ==================== @Tool 方法（AI 可调用） ====================
 
-    /**
-     * AI 工具：从 Word 或 PDF 文档中提取纯文本。
-     * 输入为 Base64 编码的文件数据，输出为提取的文本内容。
-     */
-    @Tool(value = "当用户需要从Word文档(.docx)、PDF、Markdown或TXT文件中提取纯文本内容时，调用此工具。" +
-            "参数mimeType为文件类型，base64Data为文件的Base64编码数据。返回提取的纯文本内容。")
-    public String extractDocumentText(String base64Data, String mimeType) throws IOException {
-        if (base64Data == null || base64Data.isBlank()) {
-            return "错误：文件内容为空";
-        }
-        byte[] fileData;
-        try {
-            fileData = Base64.getDecoder().decode(base64Data);
-        } catch (IllegalArgumentException e) {
-            return "错误：无效的Base64编码数据";
-        }
-
-        try {
-            return toTxt(fileData, mimeType);
-        } catch (IOException e) {
-            return "不支持的文件格式: " + mimeType + "，仅支持 .docx / .pdf / .md / .txt";
-        }
-    }
-
-    /**
-     * AI 工具：Markdown 文本 → PDF。
-     * 返回 Base64 编码的 PDF 数据，方便 AI 在回复中引用。
-     */
-    @Tool(value = "当用户需要将Markdown文本内容直接转换为PDF文件时，调用此工具。" +
-            "markdownText为Markdown格式的文本，theme为可选主题(github/minimal/light/dark，默认github)，" +
-            "paperSize为可选纸张大小(A4/Letter，默认A4)。返回Base64编码的PDF文件数据。")
-    public String convertMarkdownToPdf(String markdownText, String theme, String paperSize) {
-        try {
-            byte[] pdfData = markdownToPdf(markdownText, theme, paperSize);
-            return Base64.getEncoder().encodeToString(pdfData);
-        } catch (IOException e) {
-            LOGGER.error("Markdown转PDF失败", e);
-            return "错误：Markdown转PDF失败 - " + e.getMessage();
-        }
-    }
-
-    /**
-     * AI 工具：Markdown 文本 → HTML。
-     * completePage=true 时返回完整 HTML 页面结构，false 时仅返回片段。
-     */
-    @Tool(value = "当用户需要将Markdown文本内容转换为HTML时，调用此工具。" +
-            "markdownText为Markdown格式的文本，completePage表示是否生成完整HTML页面(含DOCTYPE和样式)，" +
-            "false则只返回HTML片段。返回HTML内容。")
-    public String convertMarkdownToHtml(String markdownText, boolean completePage) {
-        try {
-            return markdownToHtml(markdownText, completePage);
-        } catch (IOException e) {
-            LOGGER.error("Markdown转HTML失败", e);
-            return "错误：Markdown转HTML失败 - " + e.getMessage();
-        }
-    }
-
-    /**
-     * AI 工具：查询当前系统支持的所有文件格式转换类型。
-     */
-    @Tool(value = "当用户需要查询系统支持的文件格式转换类型时，调用此工具。返回所有支持的格式转换说明。")
-    public String getSupportedConversions() {
-        return """
-                支持的文件格式转换：
-                1. TXT ↔ DOCX / Markdown / PDF
-                2. Markdown ↔ DOCX / TXT / PDF / HTML
-                3. DOCX ↔ TXT / Markdown / PDF
-                4. PDF ↔ TXT / Markdown / DOCX
-                5. 音频文件 → WAV (.wav)
-                6. 支持的音频输入格式：MP3、M4A
-                7. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
-                """;
-    }
 
     // ==================== 文档文本提取（私有方法） ====================
 

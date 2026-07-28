@@ -15,12 +15,16 @@ import java.util.List;
     chatModel="textAssistantModel",
     chatMemoryProvider = "redisChatMemoryProvider",
     tools={
-            "weatherService",
-            "logisticsService",
-            "webSearchService",
-            "gaodeMapService",
-            "imageGenerateTool"
-    }
+        "weatherTool",
+        "logisticsTool",
+        "webSearchTool",
+        "gaodeMapTool",
+        "imageGenerateTool",
+        "dailyHotTool",
+        "fileFormatTool",
+        "foodOrderTool",
+        "meituanTravelTool"
+        }
 )
 public interface WeChatAssistant {
 

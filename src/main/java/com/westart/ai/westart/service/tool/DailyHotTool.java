@@ -1,7 +1,5 @@
-package com.westart.ai.westart.service.impl;
+package com.westart.ai.westart.service.tool;
 
-import com.westart.ai.westart.service.DailyHotService;
-import com.westart.ai.westart.service.tool.WebSearchTool;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -22,11 +20,11 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-@Service("dailyHotServiceImpl")
+@Service("dailyHotTool")
 @RequiredArgsConstructor
-public class DailyHotServiceImpl implements DailyHotService {
+public class DailyHotTool {
 
-    private static final Logger log = LoggerFactory.getLogger(DailyHotServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(DailyHotTool.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
 
     private final WebSearchTool webSearchService;
@@ -40,7 +38,6 @@ public class DailyHotServiceImpl implements DailyHotService {
     private static final List<String> FAILURE_INDICATORS = List.of(
             "联网搜索没有返回可用结果", "联网搜索失败", "联网搜索暂时不可用");
 
-    @Override
     @Tool(value = "当用户需要获取每日热点新闻摘要并发送到指定邮箱时调用该工具。" +
             "toEmail表示接收热点摘要的邮箱地址（必填），" +
             "如果用户没有提供邮箱地址，则不调用该方法，并提示用户提供邮箱地址")

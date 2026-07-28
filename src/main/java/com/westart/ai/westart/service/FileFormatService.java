@@ -25,11 +25,13 @@ public interface FileFormatService {
     byte[] toWav(byte[] srcData, String srcMime) throws IOException;
 
     /**
-     * 将 Word 文档（.docx）转换为 PDF 文件。
-     * <p>内部先将 docx 解析为 Markdown，再调用 uapis.cn API 渲染为 PDF。</p>
+     * 将文件转换为 PDF。
+     * <p>支持的源格式：DOCX（先解析为 Markdown 再调 API 渲染）、
+     * TXT（直接作为 Markdown 渲染）、Markdown（直接渲染）。</p>
      *
-     * @param srcData  .docx 文件字节
-     * @param srcMime  源 MIME 类型（仅支持 application/vnd.openxmlformats-officedocument.wordprocessingml.document）
+     * @param srcData  源文件字节
+     * @param srcMime  源 MIME 类型（application/vnd.openxmlformats-officedocument.wordprocessingml.document、
+     *                 text/plain、text/markdown）
      * @return PDF 文件字节
      */
     byte[] toPdf(byte[] srcData, String srcMime) throws IOException;
