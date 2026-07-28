@@ -23,7 +23,7 @@ public interface UserMessageService {
      *
      * @param sessionId iLink客户端会话ID
      * @param userId 微信用户ID
-     * @param batchMessages 完成防抖收集的原始微信消息
+     * @param batchMessages 待处理的原始微信消息
      */
     void processMessageBatch(
             String sessionId,

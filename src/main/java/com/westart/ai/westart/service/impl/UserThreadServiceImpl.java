@@ -6,7 +6,6 @@ import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.westart.ai.westart.DTO.ILinkClientSession;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.UserThreadService;
-import dev.langchain4j.data.message.ChatMessage;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -25,14 +24,14 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 用户消息线程服务实现，负责按iLink客户端会话接收、批量收集和串行处理消息。
+ * 用户消息线程服务实现，负责按iLink客户端会话接收和串行处理消息。
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class UserThreadServiceImpl implements UserThreadService {
 
-    private static final long MESSAGE_BATCH_GAP_MILLIS = 8_000L;
+    private static final int MAX_MESSAGE_BATCH_SIZE = 20;
     private static final long EMPTY_QUEUE_WAIT_MILLIS = 100L;
 
     private final ILinkClientSessionRegistry sessionRegistry;
@@ -124,35 +123,25 @@ public class UserThreadServiceImpl implements UserThreadService {
     }
 
     /**
-     * 串行处理指定会话的消息，并按用户发送时间间隔收集消息批次。
+     * 串行处理指定会话的消息。
      *
      * @param session 当前iLink客户端会话
      */
     private void processSessionMessages(ILinkClientSession session) {
         String sessionId = session.sessionId();
-        WeixinMessage deferredMessage = null;
         try {
             while (!Thread.currentThread().isInterrupted()
                     && isCurrentSession(session)) {
-                WeixinMessage firstMessage = deferredMessage;
-                deferredMessage = null;
-                if (firstMessage == null) {
-                    firstMessage = session.messageQueue().poll();
-                }
-                if (firstMessage == null) {
+                WeixinMessage message = session.messageQueue().poll();
+                if (message == null) {
                     TimeUnit.MILLISECONDS.sleep(EMPTY_QUEUE_WAIT_MILLIS);
                     continue;
                 }
 
-                String userId = firstMessage.getFrom_user_id();
+                String userId = message.getFrom_user_id();
+                List<WeixinMessage> messages = collectAvailableMessages(session.messageQueue(), message);
                 startTyping(session.client(), userId, sessionId);
-                //收集消息批次
-                MessageBatch messageBatch = collectMessageBatch(session, firstMessage);
-                deferredMessage = messageBatch.deferredMessage();
-                delegateMessageBatch(
-                        session,
-                        userId,
-                        messageBatch.messages());
+                delegateMessageBatch(session, userId, messages);
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -162,65 +151,24 @@ public class UserThreadServiceImpl implements UserThreadService {
     }
 
     /**
-     * 收集属于同一连续发送时间窗口的消息批次。
-     *
-     * @param session 当前iLink客户端会话
-     * @param firstMessage 当前批次首条消息
-     * @return 完成收集的消息批次
-     * @throws InterruptedException 等待后续消息时线程被中断
-     */
-    private MessageBatch collectMessageBatch(
-            ILinkClientSession session,
-            WeixinMessage firstMessage) throws InterruptedException {
-        List<WeixinMessage> messages = new ArrayList<>();
-        messages.add(firstMessage);
-        long lastSentAtMillis = resolveSentAtMillis(firstMessage);
-        WeixinMessage deferredMessage = null;
-
-        while (!Thread.currentThread().isInterrupted()) {
-            WeixinMessage nextMessage = pollUntilBatchTimeout(
-                    session.messageQueue(),
-                    lastSentAtMillis);
-            if (nextMessage == null) {
-                break;
-            }
-
-            long nextSentAtMillis = resolveSentAtMillis(nextMessage);
-            if (nextSentAtMillis - lastSentAtMillis > MESSAGE_BATCH_GAP_MILLIS) {
-                deferredMessage = nextMessage;
-                break;
-            }
-            messages.add(nextMessage);
-            lastSentAtMillis = Math.max(lastSentAtMillis, nextSentAtMillis);
-        }
-        return new MessageBatch(List.copyOf(messages), deferredMessage);
-    }
-
-    /**
-     * 在当前批次剩余时间内轮询下一条消息。
+     * 收集队列中已经积压的消息，不等待后续消息到达。
      *
      * @param messageQueue 当前会话消息队列
-     * @param lastSentAtMillis 当前批次最后一条消息的发送时间
-     * @return 下一条消息；等待超时后返回null
-     * @throws InterruptedException 等待期间线程被中断
+     * @param firstMessage 当前批次首条消息
+     * @return 不超过批次上限的不可变消息列表
      */
-    private WeixinMessage pollUntilBatchTimeout(
-            Queue<WeixinMessage> messageQueue,
-            long lastSentAtMillis) throws InterruptedException {
-        long deadlineMillis = Math.addExact(lastSentAtMillis, MESSAGE_BATCH_GAP_MILLIS);
-        while (!Thread.currentThread().isInterrupted()) {
+    private List<WeixinMessage> collectAvailableMessages(Queue<WeixinMessage> messageQueue,
+             WeixinMessage firstMessage) {
+        List<WeixinMessage> messages = new ArrayList<>(MAX_MESSAGE_BATCH_SIZE);
+        messages.add(firstMessage);
+        while (messages.size() < MAX_MESSAGE_BATCH_SIZE) {
             WeixinMessage message = messageQueue.poll();
-            if (message != null) {
-                return message;
+            if (message == null) {
+                break;
             }
-
-            long remainingMillis = deadlineMillis - System.currentTimeMillis();
-            if (remainingMillis <= 0L) {
-                return null;
-            }
-            TimeUnit.MILLISECONDS.sleep(Math.min(remainingMillis, EMPTY_QUEUE_WAIT_MILLIS));
+            messages.add(message);
         }
-        throw new InterruptedException("微信会话消息批次收集被中断");
+        return List.copyOf(messages);
     }
 
     /**
@@ -228,28 +176,17 @@ public class UserThreadServiceImpl implements UserThreadService {
      *
      * @param session 当前iLink客户端会话
      * @param userId 微信用户ID
-     * @param messages 完成防抖收集的消息批次
+     * @param messages 待处理的消息集合
      */
-    private void delegateMessageBatch(
-            ILinkClientSession session,
-            String userId,
+    private void delegateMessageBatch(ILinkClientSession session, String userId,
             List<WeixinMessage> messages) {
         try {
-            log.info(
-                    "微信消息批次收集完成，sessionId={}，userId={}，messageCount={}",
-                    session.sessionId(),
-                    userId,
-                    messages.size());
-            userMessageService.processMessageBatch(
-                    session.sessionId(),
-                    userId,
-                    messages);
+            log.info("微信消息开始处理，sessionId={}，userId={}，messageCount={}",
+                    session.sessionId(), userId, messages.size());
+            userMessageService.processMessageBatch(session.sessionId(), userId, messages);
         } catch (RuntimeException exception) {
-            log.error(
-                    "微信会话消息批次处理失败，sessionId={}，userId={}",
-                    session.sessionId(),
-                    userId,
-                    exception);
+            log.error("微信会话消息批次处理失败，sessionId={}，userId={}",
+                    session.sessionId(), userId, exception);
         } finally {
             stopTyping(session, userId);
         }
@@ -265,23 +202,6 @@ public class UserThreadServiceImpl implements UserThreadService {
         return sessionRegistry.find(session.sessionId())
                 .filter(currentSession -> currentSession == session)
                 .isPresent();
-    }
-
-    /**
-     * 读取消息实际发送时间，SDK未提供时使用当前时间降级。
-     *
-     * @param message iLink原始微信消息
-     * @return 用户发送时间，毫秒
-     */
-    private long resolveSentAtMillis(WeixinMessage message) {
-        Long sentAtMillis = message.getCreate_time_ms();
-        if (sentAtMillis != null && sentAtMillis > 0L) {
-            return sentAtMillis;
-        }
-        log.warn(
-                "微信消息缺少create_time_ms，使用本地时间降级，messageId={}",
-                message.getMessage_id());
-        return System.currentTimeMillis();
     }
 
     /**
@@ -333,16 +253,5 @@ public class UserThreadServiceImpl implements UserThreadService {
     public void destroy() {
         sessionTaskMap.values().forEach(sessionTask -> sessionTask.cancel(true));
         sessionTaskMap.clear();
-    }
-
-    /**
-     * 已完成防抖收集的微信消息批次。
-     *
-     * @param messages 当前批次消息
-     * @param deferredMessage 下一批待处理消息
-     */
-    private record MessageBatch(
-            List<WeixinMessage> messages,
-            WeixinMessage deferredMessage) {
     }
 }

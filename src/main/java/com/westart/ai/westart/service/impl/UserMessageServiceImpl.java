@@ -24,10 +24,7 @@ import okhttp3.ResponseBody;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * 用户消息服务实现，负责解析消息批次、调用微信助手并发送处理结果。
@@ -97,7 +94,7 @@ public class UserMessageServiceImpl implements UserMessageService {
      *
      * @param sessionId iLink客户端会话ID
      * @param userId 微信用户ID
-     * @param batchMessages 完成防抖收集的原始微信消息
+     * @param batchMessages 待处理的原始微信消息
      */
     @Override
     public void processMessageBatch(
@@ -137,11 +134,8 @@ public class UserMessageServiceImpl implements UserMessageService {
                 throw new IllegalStateException("AI模型未返回有效回复");
             }
         } catch (RuntimeException exception) {
-            log.error(
-                    "微信消息模型处理失败，sessionId={}，userId={}",
-                    sessionId,
-                    userId,
-                    exception);
+            log.error("微信消息模型处理失败，sessionId={}，userId={}",
+                    sessionId, userId, exception);
             sendFailureReply(client, sessionId, userId);
         }
     }
@@ -352,15 +346,11 @@ public class UserMessageServiceImpl implements UserMessageService {
      * @param toolExecutions 工具执行结果
      * @return 至少发送一张图片时返回true
      */
-    private boolean sendGeneratedImages(
-            ILinkClient client,
-            String sessionId,
-            String userId,
-            List<ToolExecution> toolExecutions) {
+    private boolean sendGeneratedImages(ILinkClient client, String sessionId,
+            String userId, List<ToolExecution> toolExecutions) {
         if (toolExecutions == null || toolExecutions.isEmpty()) {
             return false;
         }
-
         boolean imageSent = false;
         for (ToolExecution execution : toolExecutions) {
             if (execution == null
