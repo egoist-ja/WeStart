@@ -138,6 +138,12 @@
             <groupId>org.docx4j</groupId>
             <artifactId>docx4j</artifactId>
             <version>3.3.7</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.xmlgraphics</groupId>
@@ -158,6 +164,17 @@
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
             <version>2.3.9</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-mcp</artifactId>
+            <version>1.17.1-beta27</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>dev.langchain4j</groupId>
+                    <artifactId>langchain4j-http-client-jdk</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
