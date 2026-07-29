@@ -7,6 +7,7 @@ import dev.langchain4j.mcp.client.DefaultMcpClient;
 import dev.langchain4j.mcp.client.McpCallContext;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.mcp.client.McpClientListener;
+import dev.langchain4j.mcp.client.McpHeadersSupplier;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.service.tool.ToolExecutionResult;
@@ -21,23 +22,20 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.zip.GZIPOutputStream;
-
 import java.io.ByteArrayOutputStream;
-import java.net.URL;
-import java.nio.file.*;
-import java.security.*;
-import java.util.*;
+
 
 @Slf4j
 @Configuration
 public class UtilConfigure {
+
+    /** Transport 内部用 Jackson 2.x，签名必须同版本，否则字段顺序不同 → SHA256 不同 → 401 */
+    private static final com.fasterxml.jackson.databind.ObjectMapper JACKSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     /**
      * OkHttpClient客户端配置
@@ -79,75 +77,103 @@ public class UtilConfigure {
                 .logRequests(true)
                 .logResponses(true)
                 .build();
+        McpHeadersSupplier flyHeadersSupplier = context -> {
+            try {
+                String apiKey = System.getenv("FLYAI_API_KEY");
+                String bodyJson = JACKSON.writeValueAsString(context.message());
+                return FlyAiHeaders.of("https://flyai.open.fliggy.com/mcp", bodyJson, apiKey);
+            } catch (Exception e) {
+                log.error("生成飞猪 MCP 请求头失败", e);
+                return Map.of();
+            }
+        };
+
         McpTransport flyTransport = StreamableHttpMcpTransport.builder()
-                .customHeaders(Map.of("Authorization","Bearer sk-1SDTSiuY-wkyNv3fHYr6zH5mXjoVmlBc"))
+                .customHeaders(flyHeadersSupplier)
                 .url("https://flyai.open.fliggy.com/mcp")
                 .logRequests(true)
                 .logResponses(true)
                 .build();
-        McpClient flyClient = DefaultMcpClient.builder()
-                .transport(flyTransport)
-                .key("flyClient")
-                .addListener(new McpClientListener() {
-                    @Override
-                    public void beforeInitialize(McpCallContext context) {
-                        log.info("初始化飞猪MCP");
-                    }
+        McpClient flyClient = null;
+        try {
+            flyClient = DefaultMcpClient.builder()
+                    .transport(flyTransport)
+                    .key("flyClient")
+                    .addListener(new McpClientListener() {
+                        @Override
+                        public void beforeInitialize(McpCallContext context) {
+                            log.info("初始化飞猪MCP");
+                        }
 
-                    @Override
-                    public void afterInitialize(McpCallContext context) {
-                        log.info("飞猪MCP初始化已完成");
-                    }
+                        @Override
+                        public void afterInitialize(McpCallContext context) {
+                            log.info("飞猪MCP初始化已完成");
+                        }
 
-                    @Override
-                    public void beforeExecuteTool(McpCallContext context) {
-                        InvocationContext invocationContext = context.invocationContext();
-                        log.info("准备执行工具:{}",invocationContext.methodName());
-                    }
+                        @Override
+                        public void beforeExecuteTool(McpCallContext context) {
+                            InvocationContext invocationContext = context.invocationContext();
+                            log.info("准备执行工具:{}", invocationContext.methodName());
+                        }
 
-                    @Override
-                    public void afterExecuteTool(McpCallContext context, ToolExecutionResult result, Map<String, Object> rawResult) {
-                        InvocationContext invocationContext = context.invocationContext();
-                        log.info("准备执行工具:{},工具执行结果:{}",invocationContext.methodName(),result.result());
-                    }
-                })
-                .build();
-        McpClient luckinClient = DefaultMcpClient.builder()
-                .transport(luckinTransport)
-                .key("luckinClient")
-                .addListener(new McpClientListener() {
-                    @Override
-                    public void beforeInitialize(McpCallContext context) {
-                        log.info("初始化瑞幸MCP");
-                    }
+                        @Override
+                        public void afterExecuteTool(McpCallContext context, ToolExecutionResult result, Map<String, Object> rawResult) {
+                            InvocationContext invocationContext = context.invocationContext();
+                            log.info("准备执行工具:{},工具执行结果:{}", invocationContext.methodName(), result.result());
+                        }
+                    })
+                    .build();
+        } catch (Exception e) {
+            log.error("飞猪 MCP 客户端初始化失败，将跳过", e);
+        }
 
-                    @Override
-                    public void afterInitialize(McpCallContext context) {
-                        log.info("瑞幸MCP初始化已完成");
-                    }
+        McpClient luckinClient = null;
+        try {
+            luckinClient = DefaultMcpClient.builder()
+                    .transport(luckinTransport)
+                    .key("luckinClient")
+                    .addListener(new McpClientListener() {
+                        @Override
+                        public void beforeInitialize(McpCallContext context) {
+                            log.info("初始化瑞幸MCP");
+                        }
 
-                    @Override
-                    public void beforeExecuteTool(McpCallContext context) {
-                        InvocationContext invocationContext = context.invocationContext();
-                        log.info("准备执行工具:{}",invocationContext.methodName());
-                    }
+                        @Override
+                        public void afterInitialize(McpCallContext context) {
+                            log.info("瑞幸MCP初始化已完成");
+                        }
 
-                    @Override
-                    public void afterExecuteTool(McpCallContext context, ToolExecutionResult result, Map<String, Object> rawResult) {
-                        InvocationContext invocationContext = context.invocationContext();
-                        log.info("准备执行工具:{},工具执行结果:{}",invocationContext.methodName(),result.result());
-                    }
-                })
-                .build();
+                        @Override
+                        public void beforeExecuteTool(McpCallContext context) {
+                            InvocationContext invocationContext = context.invocationContext();
+                            log.info("准备执行工具:{}", invocationContext.methodName());
+                        }
+
+                        @Override
+                        public void afterExecuteTool(McpCallContext context, ToolExecutionResult result, Map<String, Object> rawResult) {
+                            InvocationContext invocationContext = context.invocationContext();
+                            log.info("准备执行工具:{},工具执行结果:{}", invocationContext.methodName(), result.result());
+                        }
+                    })
+                    .build();
+        } catch (Exception e) {
+            log.error("瑞幸 MCP 客户端初始化失败，将跳过", e);
+        }
+
+        List<McpClient> clients = new ArrayList<>();
+        if (flyClient != null) clients.add(flyClient);
+        if (luckinClient != null) clients.add(luckinClient);
+
         return McpToolProvider.builder()
-                .mcpClients(luckinClient,flyClient)
+                .mcpClients(clients.toArray(new McpClient[0]))
+                .failIfOneServerFails(false)
                 .build();
     }
 }
 
 
 /**
- * 飞猪 MCP 请求头生成器（极简版）。
+ * 飞猪 MCP 请求头生成器。
  * 用法：Map<String,String> h = FlyAiHeaders.of(url, body, apiKey);
  */
 class FlyAiHeaders {
@@ -162,7 +188,6 @@ class FlyAiHeaders {
 
     private FlyAiHeaders() {}
 
-    // ==================== 唯一公开方法 ====================
 
     /**
      * @param url    完整 MCP 地址，如 https://flyai.open.fliggy.com/mcp
@@ -195,7 +220,7 @@ class FlyAiHeaders {
         }
     }
 
-    // ==================== 签名 ====================
+    //签名
 
     private static String sign(String path, String ts, String nonce, String body, String auth) throws Exception {
         String data = "POST\n" + path + "\n" + ts + "\n" + nonce + "\n"
@@ -206,7 +231,7 @@ class FlyAiHeaders {
                 .encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
     }
 
-    // ==================== x-ff-ctx（加密指纹） ====================
+    // x-ff-ctx（加密指纹）
 
     private static String ffCtx() throws Exception {
         String json = "{\"machine\":{\"platform\":\"Windows\",\"arch\":\"x64\",\"cpus\":8,"
@@ -231,7 +256,7 @@ class FlyAiHeaders {
         return Base64.getEncoder().encodeToString(out);
     }
 
-    // ==================== 工具方法 ====================
+    //工具方法
 
     private static String sha256hex(String s) {
         try {
