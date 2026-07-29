@@ -24,7 +24,8 @@ import java.util.List;
         "fileFormatTool",
         "foodOrderTool",
         "meituanTravelTool"
-        }
+        },
+    toolProvider = "mcpToolProvider"
 )
 public interface WeChatAssistant {
 
