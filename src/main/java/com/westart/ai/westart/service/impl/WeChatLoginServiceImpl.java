@@ -118,6 +118,7 @@ public class WeChatLoginServiceImpl implements WeChatLoginService {
         }
 
         userThreadService.startSession(sessionId);
+        sessionRegistry.registerUser(loginContext.getUserId(), sessionId);
         log.info(
                 "微信扫码登录成功，sessionId={}，userId={}，botId={}",
                 sessionId,
