@@ -15,7 +15,6 @@ import java.util.Map;
 public final class BearerMcpStrategy implements McpHeadersSupplier {
 
     private static final String AUTHORIZATION = "Authorization";
-
     private final McpProperties.ServerConfig serverConfig;
 
     /**
