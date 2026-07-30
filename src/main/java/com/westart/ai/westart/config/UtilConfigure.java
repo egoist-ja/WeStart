@@ -39,7 +39,11 @@ public class UtilConfigure {
      */
     @Bean
     public OkHttpClient okHttpClient(){
-        return new OkHttpClient();
+        return new OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .build();
     }
 
     /**
