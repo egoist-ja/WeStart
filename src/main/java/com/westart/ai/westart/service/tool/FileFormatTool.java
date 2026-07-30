@@ -10,6 +10,7 @@ import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import dev.langchain4j.data.message.TextContent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -29,8 +30,6 @@ import org.jcodec.common.DemuxerTrack;
 import org.jcodec.common.io.FileChannelWrapper;
 import org.jcodec.common.model.Packet;
 import org.jcodec.containers.mp4.demuxer.MP4Demuxer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -57,9 +56,9 @@ import java.util.UUID;
 
 @Service("fileFormatTool")
 @RequiredArgsConstructor
+@Slf4j
 public class FileFormatTool {
 
-    private static final Logger log = LoggerFactory.getLogger(FileFormatTool.class);
     private static final File TEMP_DIR = new File(
             System.getProperty("java.io.tmpdir"), "westart_convert");
 
@@ -71,8 +70,14 @@ public class FileFormatTool {
         TEMP_DIR.mkdirs();
     }
 
-    // ==================== 文件消息处理 ====================
-
+    /**
+     * 文件消息处理
+     *
+     * @param client
+     * @param userId
+     * @param item
+     * @return
+     */
     public TextContent processIncomingFile(ILinkClient client, String userId, MessageItem item) {
         if (item.getFile_item() == null) return null;
         String fileName = item.getFile_item().getFile_name();
@@ -100,8 +105,12 @@ public class FileFormatTool {
         }
     }
 
-    // ==================== 客户端连接 ====================
-
+    /**
+     * 客户端连接
+     *
+     * @param userId
+     * @return
+     */
     private ILinkClient getClient(String userId) {
         Optional<ILinkClient> client = sessionRegistry.findClientByUserId(userId);
         if (client.isEmpty()) {
@@ -110,8 +119,15 @@ public class FileFormatTool {
         return client.orElse(null);
     }
 
-    // ==================== 音频转换 ====================
 
+    /**
+     * 音频转换
+     *
+     * @param srcData
+     * @param srcMime
+     * @return
+     * @throws IOException
+     */
     public byte[] toWav(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
@@ -122,7 +138,14 @@ public class FileFormatTool {
         };
     }
 
-    // ==================== 文档转换 ====================
+    /**
+     * 文档转换
+     *
+     * @param srcData
+     * @param srcMime
+     * @return
+     * @throws IOException
+     */
 
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
@@ -190,12 +213,19 @@ public class FileFormatTool {
         return callMarkdownToHtmlApi(markdownText, completePage);
     }
 
-    // ==================== uapis.cn API 调用 ====================
-
+    /**
+     * uapi.cn API调用
+     *
+     * @param markdown
+     * @param theme
+     * @param paperSize
+     * @return
+     * @throws IOException
+     */
     private byte[] callMarkdownToPdfApi(String markdown, String theme, String paperSize) throws IOException {
         String apiKey = getUapiKey();
         if (apiKey == null) {
-            throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
+            throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "theme", theme, "paper_size", paperSize));
@@ -220,7 +250,7 @@ public class FileFormatTool {
     private String callMarkdownToHtmlApi(String markdown, boolean completePage) throws IOException {
         String apiKey = getUapiKey();
         if (apiKey == null) {
-            throw new IOException("UAPIS_API_KEY 未设置，请注册 https://uapis.cn 获取");
+            throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "format", completePage ? "html" : "json"));
@@ -244,10 +274,12 @@ public class FileFormatTool {
     }
 
     private String getUapiKey() {
-        return System.getenv("UAPIS_API_KEY");
+        return System.getenv("UAPI_KEY");
     }
 
-    // ==================== 工具方法：文件转换 ====================
+    /**
+     *  工具方法：文件转换
+     */
 
     @Tool(value = "将用户之前发送的文件转换为Word文档(.docx)。" +
             "fileKey的值来自之前用户消息中的[文件ID: xxx]，直接提取xxx传入即可。")
@@ -384,7 +416,10 @@ public class FileFormatTool {
                 """;
     }
 
-    // ==================== 文档文本提取 ====================
+    /**
+     * 文档文本提取
+     */
+
 
     private String extractDocxText(byte[] fileData) throws IOException {
         try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileData))) {
@@ -423,8 +458,10 @@ public class FileFormatTool {
             deleteFile(tmp);
         }
     }
-
-    // ==================== 音频解码 ====================
+    /**
+     *  音频解码
+     *
+     */
 
     private byte[] decodeMp3ToPcm(byte[] mp3Data) throws IOException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(mp3Data);
@@ -481,7 +518,10 @@ public class FileFormatTool {
         pcm.write(b);
     }
 
-    // ==================== WAV 封装 ====================
+    /**
+     * WAV 封装
+     *
+     */
 
     private byte[] writeWav(byte[] pcm, int sampleRate) throws IOException {
         int channels = 1, bits = 16;
@@ -521,7 +561,10 @@ public class FileFormatTool {
         out.write((v >> 8) & 0xFF);
     }
 
-    // ==================== TXT / MD ↔ DOCX 辅助方法 ====================
+    /**
+     *  TXT / MD ↔ DOCX 辅助方法
+     *
+     */
 
     private byte[] pdfToDocx(byte[] srcData) throws IOException {
         File tmp = null;
@@ -655,7 +698,10 @@ public class FileFormatTool {
         return md.toString();
     }
 
-    // ==================== 临时文件管理 ====================
+    /**
+     *   临时文件管理
+     *
+     */
 
     private File saveTemp(byte[] data, String suffix) throws IOException {
         File f = new File(TEMP_DIR, UUID.randomUUID().toString() + suffix);
