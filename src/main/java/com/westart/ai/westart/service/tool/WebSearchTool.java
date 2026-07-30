@@ -10,6 +10,7 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -38,6 +39,7 @@ public class WebSearchTool{
 
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     @Tool(value = """
             当用户的问题依赖互联网实时信息时调用该工具。
@@ -61,9 +63,9 @@ public class WebSearchTool{
             return "联网搜索失败：缺少有效的搜索关键词。";
         }
 
-        String apiKey = System.getenv("UAPI_KEY");
-        if (apiKey == null || apiKey.isBlank()) {
-            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 为空");
+        String apiKey = environment.getProperty("websearch.api-key", "");
+        if (apiKey.isBlank()) {
+            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置");
             return "联网搜索工具尚未配置，无法查询实时信息。";
         }
 

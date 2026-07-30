@@ -48,12 +48,16 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service("fileFormatTool")
 @RequiredArgsConstructor
@@ -62,6 +66,8 @@ public class FileFormatTool {
     private static final Logger log = LoggerFactory.getLogger(FileFormatTool.class);
     private static final File TEMP_DIR = new File(
             System.getProperty("java.io.tmpdir"), "westart_convert");
+    private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
+    private static final long TEMP_FILE_MAX_AGE = 3600_000;
 
     private final OkHttpClient okHttpClient;
     private final ObjectMapper objectMapper;
@@ -69,6 +75,17 @@ public class FileFormatTool {
 
     static {
         TEMP_DIR.mkdirs();
+        ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
+        cleaner.scheduleAtFixedRate(() -> {
+            File[] files = TEMP_DIR.listFiles();
+            if (files == null) return;
+            long now = System.currentTimeMillis();
+            for (File f : files) {
+                if (now - f.lastModified() > TEMP_FILE_MAX_AGE) {
+                    f.delete();
+                }
+            }
+        }, 60, 60, TimeUnit.MINUTES);
     }
 
     // ==================== 文件消息处理 ====================
@@ -80,6 +97,10 @@ public class FileFormatTool {
         try {
             byte[] fileData = client.downloadFileFromMessageItem(item);
             if (fileData == null || fileData.length == 0) return null;
+            if (fileData.length > MAX_FILE_SIZE) {
+                log.warn("文件超过大小限制，userId={}，fileName={}，size={}", userId, fileName, fileData.length);
+                return TextContent.from("文件大小超过 50MB 限制，无法处理。");
+            }
             String ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
             String mime = switch (ext) {
                 case "pdf" -> "application/pdf";
@@ -145,11 +166,11 @@ public class FileFormatTool {
                 }
             }
             case "text/plain" -> {
-                String text = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+                String text = decodeText(srcData);
                 yield callMarkdownToPdfApi(text, "github", "A4");
             }
             case "text/markdown" -> {
-                String md = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
+                String md = decodeText(srcData);
                 yield callMarkdownToPdfApi(md, "github", "A4");
             }
             default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 DOCX / TXT / Markdown）");
@@ -160,8 +181,8 @@ public class FileFormatTool {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
             case "application/pdf" -> pdfToDocx(srcData);
-            case "text/markdown" -> mdToDocx(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
-            case "text/plain" -> txtToDocx(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
+            case "text/markdown" -> mdToDocx(decodeText(srcData));
+            case "text/plain" -> txtToDocx(decodeText(srcData));
             default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 PDF / Markdown / TXT）");
         };
     }
@@ -169,8 +190,8 @@ public class FileFormatTool {
     public String toTxt(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
-            case "text/plain" -> new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
-            case "text/markdown" -> mdToPlainText(new String(srcData, java.nio.charset.StandardCharsets.UTF_8));
+            case "text/plain" -> decodeText(srcData);
+            case "text/markdown" -> mdToPlainText(decodeText(srcData));
             case "application/pdf" -> extractPdfText(srcData);
             case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
                     extractDocxText(srcData);
@@ -285,7 +306,7 @@ public class FileFormatTool {
             byte[] result;
             String mime = file.mime();
             if ("text/plain".equals(mime) || "text/markdown".equals(mime)) {
-                String text = new String(file.data(), java.nio.charset.StandardCharsets.UTF_8);
+                String text = decodeText(file.data());
                 result = markdownToPdf(text, "github", "A4");
             } else if ("application/vnd.openxmlformats-officedocument.wordprocessingml.document".equals(mime)) {
                 result = toPdf(file.data(), mime);
@@ -417,12 +438,22 @@ public class FileFormatTool {
         try {
             tmp = saveTemp(fileData, ".pdf");
             try (PDDocument doc = Loader.loadPDF(tmp)) {
+                if (doc.isEncrypted()) {
+                    throw new IOException("PDF 已加密，无法提取文本。");
+                }
                 PDFTextStripper stripper = new PDFTextStripper();
                 stripper.setSortByPosition(true);
                 stripper.setWordSeparator(" ");
                 String text = stripper.getText(doc).trim();
-                return text.isEmpty() ? "PDF中未提取到文本内容" : text;
+                if (text.isEmpty()) {
+                    throw new IOException("PDF 为扫描件或无可提取的文本内容。");
+                }
+                return text;
             }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("PDF 解析失败", e);
         } finally {
             deleteFile(tmp);
         }
@@ -599,6 +630,14 @@ public class FileFormatTool {
         } catch (Exception e) {
             throw new IOException("Markdown转Word失败", e);
         }
+    }
+
+    private String decodeText(byte[] data) {
+        String text = new String(data, java.nio.charset.StandardCharsets.UTF_8);
+        if (text.contains("\uFFFD")) {
+            text = new String(data, Charset.forName("GBK"));
+        }
+        return text;
     }
 
     private String mdToPlainText(String markdown) {

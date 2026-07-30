@@ -39,6 +39,7 @@ public class ModelConfig {
         return QwenChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
+                .modelName("qwen-image-2.0")
                 .build();
     }
 
