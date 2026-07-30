@@ -95,8 +95,7 @@ public class FileFormatConverter {
                     deleteFile(tmp);
                 }
             }
-            case "text/plain" -> callMarkdownToPdfApi(decodeText(srcData), "github", "A4");
-            case "text/markdown" -> callMarkdownToPdfApi(decodeText(srcData), "github", "A4");
+            case "text/plain", "text/markdown" -> callMarkdownToPdfApi(decodeText(srcData), "github", "A4");
             default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 DOCX / TXT / Markdown）");
         };
     }
