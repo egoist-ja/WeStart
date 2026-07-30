@@ -8,6 +8,7 @@ import dev.langchain4j.observability.api.listener.AiServiceListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 @Configuration
@@ -26,6 +27,7 @@ public class ModelConfig {
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
                 .modelName("qwen3.7-plus")
+                .listeners(List.of())
                 .build();
     }
 

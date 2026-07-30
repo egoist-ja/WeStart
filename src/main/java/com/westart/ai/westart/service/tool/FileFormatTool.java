@@ -30,8 +30,14 @@ public class FileFormatTool {
     private final FileFormatConverter converter;
     private final ILinkClientSessionRegistry sessionRegistry;
 
-    // ==================== 文件消息处理 ====================
-
+    /**
+     * 文件消息处理
+     *
+     * @param client
+     * @param userId
+     * @param item
+     * @return
+     */
     public TextContent processIncomingFile(ILinkClient client, String userId, MessageItem item) {
         if (item.getFile_item() == null) return null;
         String fileName = item.getFile_item().getFile_name();
@@ -63,8 +69,12 @@ public class FileFormatTool {
         }
     }
 
-    // ==================== 客户端连接 ====================
-
+    /**
+     * 客户端连接
+     *
+     * @param userId
+     * @return
+     */
     private ILinkClient getClient(String userId) {
         Optional<ILinkClient> client = sessionRegistry.findClientByUserId(userId);
         if (client.isEmpty()) {

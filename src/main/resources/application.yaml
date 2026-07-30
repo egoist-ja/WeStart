@@ -1,10 +1,13 @@
 spring:
   application:
     name: westart
+  data:
+    redis:
+      url: redis://127.0.0.1:6379
   datasource:
     url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
     username: root
-    password: ${PASSWORD:}
+    password: ${PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -36,3 +39,25 @@ app:
   temp:
     images:
       dir: ./temp/images
+
+mcp:
+  servers:
+    flyai:
+      name: 飞猪
+      enabled: true
+      transport: streamable-http
+      url: https://flyai.open.fliggy.com/mcp
+      auth-type: flyai
+      api-key: ${FLYAI_API_KEY}
+      log-requests: true
+      log-responses: true
+
+    luckin:
+      name: 瑞幸
+      enabled: true
+      transport: streamable-http
+      url: https://gwmcp.lkcoffee.com/order/user/mcp
+      auth-type: bearer
+      api-key: ${LUCKIN_API_KEY}
+      log-requests: true
+      log-responses: true
