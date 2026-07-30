@@ -144,13 +144,9 @@ public class FileFormatTool {
                     deleteFile(tmp);
                 }
             }
-            case "text/plain" -> {
+            case "text/plain", "text/markdown" -> {
                 String text = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
                 yield callMarkdownToPdfApi(text, "github", "A4");
-            }
-            case "text/markdown" -> {
-                String md = new String(srcData, java.nio.charset.StandardCharsets.UTF_8);
-                yield callMarkdownToPdfApi(md, "github", "A4");
             }
             default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 DOCX / TXT / Markdown）");
         };
