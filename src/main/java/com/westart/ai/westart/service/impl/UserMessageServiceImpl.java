@@ -9,6 +9,7 @@ import com.westart.ai.westart.service.ChatHistoryThreadService;
 import com.westart.ai.westart.service.MemoryService;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.VoiceGenerateService;
+import com.westart.ai.westart.service.tool.FileFormatTool;
 import com.westart.ai.westart.service.ai.WeChatAssistant;
 import dev.langchain4j.data.image.Image;
 import dev.langchain4j.data.message.Content;
@@ -48,6 +49,7 @@ public class UserMessageServiceImpl implements UserMessageService {
     private final ChatHistoryThreadService chatHistoryThreadService;
     private final VoiceGenerateService voiceGenerateService;
     private final OkHttpClient okHttpClient;
+    private final FileFormatTool fileFormatTool;
 
     /**
      * 向指定微信用户发送文本消息。
@@ -198,6 +200,12 @@ public class UserMessageServiceImpl implements UserMessageService {
             if (item.getVideo_item() != null) {
                 log.info("忽略微信视频消息，userId={}", message.getFrom_user_id());
                 return null;
+            }
+            if (item.getFile_item() != null) {
+                TextContent fileContent = fileFormatTool.processIncomingFile(
+                        client, message.getFrom_user_id(), item);
+                if (fileContent != null) return fileContent;
+                continue;
             }
         }
 

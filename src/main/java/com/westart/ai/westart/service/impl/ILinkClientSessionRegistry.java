@@ -1,5 +1,6 @@
 package com.westart.ai.westart.service.impl;
 
+import com.github.wechat.ilink.sdk.ILinkClient;
 import com.westart.ai.westart.DTO.ILinkClientSession;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PreDestroy;
@@ -26,6 +27,12 @@ public class ILinkClientSessionRegistry {
             new ConcurrentHashMap<>();
 
     /**
+     * 用户ID到会话标识的映射，用于工具类根据userId查询客户端。
+     */
+    private final ConcurrentMap<String, String> userSessionMap =
+            new ConcurrentHashMap<>();
+
+    /**
      * 注册iLink客户端会话。
      *
      * @param session 待注册的客户端会话
@@ -40,6 +47,35 @@ public class ILinkClientSessionRegistry {
                     "iLink客户端会话已经存在，sessionId=" + session.sessionId());
         }
         log.info("iLink客户端会话注册成功，sessionId={}", session.sessionId());
+    }
+
+    /**
+     * 注册用户ID与会话标识的关联。
+     *
+     * @param userId  微信用户ID
+     * @param sessionId 会话标识
+     */
+    public void registerUser(String userId, String sessionId) {
+        if (userId != null && !userId.isBlank()) {
+            userSessionMap.put(userId, sessionId);
+            log.info("用户会话关联已注册，userId={}，sessionId={}", userId, sessionId);
+        }
+    }
+
+    /**
+     * 根据用户ID查询iLink客户端。
+     *
+     * @param userId 微信用户ID
+     * @return 对应的iLink客户端；不存在时返回空
+     */
+    public Optional<ILinkClient> findClientByUserId(String userId) {
+        if (userId == null || userId.isBlank()) return Optional.empty();
+        String sessionId = userSessionMap.get(userId);
+        if (sessionId == null) {
+            log.warn("未找到 userId={} 的会话映射", userId);
+            return Optional.empty();
+        }
+        return find(sessionId).map(ILinkClientSession::client);
     }
 
     /**

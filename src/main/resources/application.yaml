@@ -1,6 +1,18 @@
 spring:
   application:
     name: westart
+  data:
+    redis:
+      url: redis://127.0.0.1:6379
+  datasource:
+    url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: root
+    password: ${PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
   threads:
     virtual:
       enabled: true
@@ -33,6 +45,45 @@ app:
   temp:
     images:
       dir: ./temp/images
-websearch:
-  api-key: ${UAPI_KEY:}
-  api-url: ${UAPI_SEARCH_API_URL:https://uapis:cn/api/v1/search/aggregate}
+
+mcp:
+  servers:
+    flyai:
+      name: 飞猪
+      enabled: true
+      transport: streamable-http
+      url: https://flyai.open.fliggy.com/mcp
+      auth-type: flyai
+      api-key: ${FLYAI_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    luckin:
+      name: 瑞幸
+      enabled: true
+      transport: streamable-http
+      url: https://gwmcp.lkcoffee.com/order/user/mcp
+      auth-type: bearer
+      api-key: ${LUCKIN_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    mc:
+      name: 麦当劳
+      enabled: true
+      transport: streamable-http
+      url: https://mcp.mcd.cn
+      auth-type: bearer
+      api-key: ${MC_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    slideforge:
+      name: SlideForge
+      enabled: true
+      transport: streamable-http
+      url: https://api.slideforge.dev/mcp/
+      auth-type: bearer
+      log-requests: false
+      log-responses: false
+      api-key: ${SLIDEFORGE_API_KEY}
