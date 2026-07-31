@@ -4,6 +4,9 @@ import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.exception.ILinkException;
 import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
+import com.westart.ai.westart.service.ChatHistoryService;
+import com.westart.ai.westart.service.ChatHistoryThreadService;
+import com.westart.ai.westart.service.MemoryService;
 import com.westart.ai.westart.service.UserMessageService;
 import com.westart.ai.westart.service.VoiceGenerateService;
 import com.westart.ai.westart.service.tool.FileFormatTool;
@@ -41,6 +44,9 @@ public class UserMessageServiceImpl implements UserMessageService {
 
     private final ILinkClientSessionRegistry sessionRegistry;
     private final WeChatAssistant wechatAssistant;
+    private final MemoryService memoryService;
+    private final ChatHistoryService chatHistoryService;
+    private final ChatHistoryThreadService chatHistoryThreadService;
     private final VoiceGenerateService voiceGenerateService;
     private final OkHttpClient okHttpClient;
     private final FileFormatTool fileFormatTool;
@@ -110,6 +116,14 @@ public class UserMessageServiceImpl implements UserMessageService {
 
         ILinkClient client = sessionRegistry.getRequired(sessionId).client();
         try {
+            String memoryId = memoryService.resolveMemoryId(userId);
+            log.debug("微信消息已绑定稳定聊天记忆，sessionId={}，memoryId来源=from_user_id",
+                    sessionId);
+            batchMessages.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(message -> chatHistoryService.publishUserMessage(memoryId, message));
+            chatHistoryThreadService.startUserProcessing(memoryId);
+
             boolean replyWithVoice = containsVoiceMessage(batchMessages);
             List<Content> contents = batchMessages.stream()
                     .map(message -> buildUserMessage(client, message))
@@ -122,7 +136,14 @@ public class UserMessageServiceImpl implements UserMessageService {
                 log.info("微信消息批次不包含可处理内容，sessionId={}，userId={}", sessionId, userId);
                 return;
             }
-            Result<String> result = wechatAssistant.reply(userId, prepareModelContents(contents));
+            String memoryContext = memoryService.buildUserMemoryContext(memoryId);
+            Result<String> result = wechatAssistant.reply(
+                    memoryId,
+                    memoryContext,
+                    prepareModelContents(contents));
+            if (!StringUtils.isBlank(result.content())) {
+                chatHistoryService.publishAiMessage(memoryId, result.content());
+            }
             boolean imageSent = sendGeneratedImages(client, sessionId, userId, result.toolExecutions());
             if (!StringUtils.isBlank(result.content())) {
                 if (replyWithVoice) {

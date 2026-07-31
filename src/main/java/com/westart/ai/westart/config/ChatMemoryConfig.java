@@ -3,27 +3,25 @@ package com.westart.ai.westart.config;
 import com.alibaba.dashscope.tokenizers.QwenTokenizer;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ChatMessageSerializer;
-import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.TokenWindowChatMemory;
 import dev.langchain4j.model.TokenCountEstimator;
 import io.micrometer.common.util.StringUtils;
-import opennlp.tools.parser.Cons;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Consumer;
 
 /**
  * LangChain4j聊天记忆配置。
  */
 @Configuration(proxyBeanMethods = false)
+@Slf4j
 public class ChatMemoryConfig {
-
-    private static final int MAX_MEMORY_TOKENS = 50_000;
 
     /**
      * Qwen本地分词器，用于估算聊天记忆占用的Token数量。
@@ -40,12 +38,18 @@ public class ChatMemoryConfig {
     @Bean
     public ChatMemoryProvider redisChatMemoryProvider(
             RedisChatMemory redisChatMemory,
-            TokenCountEstimator tokenCountEstimator) {
+            TokenCountEstimator tokenCountEstimator,
+            @Value("${westart.memory.max-tokens}") int maxMemoryTokens) {
+
+        if (maxMemoryTokens <= 0) {
+            throw new IllegalArgumentException("聊天记忆最大Token数必须大于0");
+        }
+        log.info("Redis短期记忆Token窗口配置完成，maxTokens={}", maxMemoryTokens);
 
         return memoryId -> TokenWindowChatMemory.builder()
                 .id(memoryId)
                 .chatMemoryStore(redisChatMemory)
-                .maxTokens(MAX_MEMORY_TOKENS, tokenCountEstimator)
+                .maxTokens(maxMemoryTokens, tokenCountEstimator)
                 .alwaysKeepSystemMessageFirst(true)
                 .build();
     }
@@ -97,8 +101,6 @@ public class ChatMemoryConfig {
                 if (messages == null) {
                     return 0;
                 }
-                Consumer consumer1 = System.out::println;
-                Consumer consumer2 = message-> System.out.println(message);
                 List<ChatMessage> messageList = new ArrayList<>();
                 for (ChatMessage message : messages) {
                     messageList.add(Objects.requireNonNull(message, "message不能为空"));

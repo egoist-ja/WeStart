@@ -16,20 +16,29 @@ spring:
   threads:
     virtual:
       enabled: true
-  mail:
-    host: ${MAIL_HOST:}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          connectiontimeout: 10000
-          timeout: 10000
-          writetimeout: 10000
+  data:
+    redis:
+      url: ${REDIS_URL:redis://127.0.0.1:6379}
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/westart?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: westart
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+westart:
+  memory:
+    redis-key-prefix: "westart:chat-memory:"
+    chat-ttl: 3h
+    max-tokens: 50000
+    history-stream-key: "westart:stream:chat-history"
+    history-consumer-group: "westart-chat-history-group"
+    history-batch-size: 20
+    history-max-wait: 1m
+    history-poll-interval: 5s
+    history-pending-timeout: 1m
+    history-max-delivery-attempts: 3
+    history-dead-letter-stream-key: "stream:history:deadletter"
+
 
 
 app:
