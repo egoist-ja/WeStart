@@ -31,9 +31,6 @@ spring:
           timeout: 10000
           writetimeout: 10000
 
-websearch:
-  api-key: ${UAPIS_API_KEY:}
-  api-url: ${UAPI_SEARCH_API_URL:https://uapis.cn/api/v1/search/aggregate}
 
 app:
   temp:
@@ -49,8 +46,8 @@ mcp:
       url: https://flyai.open.fliggy.com/mcp
       auth-type: flyai
       api-key: ${FLYAI_API_KEY}
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false
 
     luckin:
       name: 瑞幸
@@ -59,5 +56,25 @@ mcp:
       url: https://gwmcp.lkcoffee.com/order/user/mcp
       auth-type: bearer
       api-key: ${LUCKIN_API_KEY}
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false
+
+    mc:
+      name: 麦当劳
+      enabled: true
+      transport: streamable-http
+      url: https://mcp.mcd.cn
+      auth-type: bearer
+      api-key: ${MC_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    slideforge:
+      name: SlideForge
+      enabled: true
+      transport: streamable-http
+      url: https://api.slideforge.dev/mcp/
+      auth-type: bearer
+      log-requests: false
+      log-responses: false
+      api-key: ${SLIDEFORGE_API_KEY}
