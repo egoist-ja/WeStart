@@ -69,7 +69,8 @@ public class WeatherTool{
 
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | InvalidKeyException
                  | SignatureException | IOException e) {
-            throw new RuntimeException("查询天气信息失败", e);
+            log.error("查询天气信息失败，province={}，cityName={}", province, cityName, e);
+            return "查询天气信息失败，请稍后重试。";
         }
     }
 
@@ -126,7 +127,8 @@ public class WeatherTool{
             }
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | InvalidKeyException
                  | SignatureException | IOException e) {
-            throw new RuntimeException("查询城市ID失败", e);
+            log.error("查询城市ID失败，province={}，cityName={}", province, cityName, e);
+            return "查询城市ID失败，请稍后重试。";
         }
     }
 }

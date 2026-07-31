@@ -3,10 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>微信机器人登录</title>
+    <title>WeStart · 微信机器人登录</title>
     <style>
-        * {
+        *, *::before, *::after {
             box-sizing: border-box;
+        }
+
+        :root {
+            --bg-start: #f3f4f6;
+            --bg-end:   #eaecf0;
+            --card-bg:  #ffffff;
+            --text-primary:   #1f2937;
+            --text-secondary: #6b7280;
+            --text-muted:     #9ca3af;
+            --qr-bg:    #f9fafb;
+            --qr-border:#e5e7eb;
+            --shadow-sm: 0 1px  2px  rgba(0,0,0,.04);
+            --shadow-md: 0 4px  12px rgba(0,0,0,.06);
+            --shadow-lg: 0 16px 48px rgba(0,0,0,.07);
+            --radius-card: 20px;
+            --radius-qr:   14px;
+        }
+
+        html {
+            height: 100%;
         }
 
         body {
@@ -15,77 +35,174 @@
             align-items: center;
             justify-content: center;
             margin: 0;
-            padding: 20px;
-            color: #303133;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #f5f7fa;
+            padding: 24px;
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                         "Microsoft YaHei", "Helvetica Neue", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background:
+                linear-gradient(170deg, var(--bg-start) 0%, var(--bg-end) 100%) fixed;
+            animation: fadeIn 0.6s ease-out;
         }
 
+        /* 细微点阵纹理 — 纯 CSS，无外部资源 */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image: radial-gradient(rgba(0,0,0,.03) 1px, transparent 1px);
+            background-size: 18px 18px;
+        }
+
+        /* 极淡光斑点缀 — 打破纯灰的单调感 */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse 420px 360px at 15% 85%, rgba(99,102,241,.025) 0%, transparent 100%),
+                radial-gradient(ellipse 320px 280px at 88% 12%, rgba(148,163,184,.03) 0%, transparent 100%);
+        }
+
+        /* 水印式背景标题 — 页面最底层，纯装饰 */
+        .watermark {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            user-select: none;
+            font-size: clamp(64px, 14vw, 180px);
+            font-weight: 900;
+            color: rgba(203,213,225,.14);
+            white-space: nowrap;
+            letter-spacing: 0.06em;
+            text-indent: 0.06em;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0);  }
+        }
+
+        /* —————— 卡片 —————— */
         .login-card {
+            position: relative;
+            z-index: 1;
             width: 420px;
             max-width: 100%;
-            padding: 36px 32px;
+            padding: 44px 40px 36px;
             text-align: center;
-            background: #ffffff;
-            border-radius: 14px;
-            box-shadow: 0 10px 36px rgba(31, 35, 41, 0.09);
+            background: var(--card-bg);
+            border-radius: var(--radius-card);
+            box-shadow: var(--shadow-sm), var(--shadow-md), var(--shadow-lg);
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
         }
 
+        .login-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-sm), var(--shadow-md),
+                        0 24px 56px rgba(0,0,0,.09);
+        }
+
+        /* —————— 排版 —————— */
         h1 {
-            margin: 0 0 12px;
-            font-size: 25px;
+            margin: 0 0 10px;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
         }
 
-        .description,
-        .tip {
-            color: #606266;
+        .brand-dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            margin-left: 4px;
+            border-radius: 50%;
+            background: #6366f1;
+            vertical-align: super;
         }
 
         .description {
-            margin: 0 0 24px;
+            margin: 0 0 28px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-secondary);
         }
 
-        .qr-code-container {
+        /* —————— 二维码容器 —————— */
+        .qr-box {
             display: flex;
-            width: 328px;
-            max-width: 100%;
-            min-height: 328px;
             align-items: center;
             justify-content: center;
+            min-height: 296px;
             margin: 0 auto;
-            padding: 4px;
-            border: 1px solid #ebeef5;
-            border-radius: 8px;
+            padding: 16px;
+            background: var(--qr-bg);
+            border: 1px solid var(--qr-border);
+            border-radius: var(--radius-qr);
         }
 
         .qr-code {
             display: block;
-            width: 320px;
+            width: 264px;
             max-width: 100%;
             height: auto;
+            border-radius: 4px;
         }
 
+        /* —————— 底部提示 —————— */
         .tip {
-            margin: 20px 0 0;
-            font-size: 14px;
+            margin: 24px 0 0;
+            font-size: 13px;
+            color: var(--text-muted);
         }
 
+        /* —————— 错误提示 —————— */
         .error-message {
             display: none;
-            color: #f56c6c;
+            color: #ef4444;
+            font-size: 14px;
             line-height: 1.7;
+        }
+
+        /* —————— 移动端适配 —————— */
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 32px 24px 28px;
+                border-radius: 16px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            .qr-box {
+                min-height: 240px;
+                padding: 12px;
+            }
+
+            .qr-code {
+                width: 220px;
+            }
         }
     </style>
 </head>
 <body>
+<div class="watermark" aria-hidden="true">微信机器人</div>
 <main class="login-card">
-    <h1>微信机器人登录</h1>
-    <p class="description">请使用微信扫描下方二维码并确认登录</p>
-    <div class="qr-code-container">
+    <h1>WeStart<span class="brand-dot"></span></h1>
+    <p class="description">微信扫码并确认登录，即刻开始对话</p>
+    <div class="qr-box">
         <img id="qrCode" class="qr-code" src="/wechat/login/qrcode" alt="微信登录二维码">
         <p id="errorMessage" class="error-message">二维码加载失败，请确认服务正常运行后刷新页面。</p>
     </div>
-    <p class="tip">二维码过期后，请刷新本页面重新获取。</p>
+    <p class="tip">二维码过期后，请刷新页面重新获取</p>
 </main>
 <script>
     const qrCode = document.getElementById('qrCode');

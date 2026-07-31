@@ -210,7 +210,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         return List.copyOf(chatMessageMapper.selectUnprocessedMessageIds(normalizedMessageIds));
     }
 
-    // ========== Per-User Stream 操作 ==========
+    /** Per-User Stream 操作。 */
 
     /**
      * 使用消费者组阻塞读取指定用户的一批新消息。
@@ -334,7 +334,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    // ========== Per-User Stream 私有方法 ==========
+    /** Per-User Stream 私有方法。 */
 
     /**
      * 写入一条消息到指定用户的Redis Stream。

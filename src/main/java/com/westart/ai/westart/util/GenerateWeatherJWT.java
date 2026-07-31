@@ -21,6 +21,9 @@ public class GenerateWeatherJWT {
     public static String generateJWT() throws NoSuchAlgorithmException, InvalidKeySpecException, InvalidKeyException, SignatureException {
         // Private key
         String privateKeyString = System.getenv("PRIVATE_KEY");
+        if (privateKeyString == null || privateKeyString.isBlank()) {
+            throw new IllegalStateException("环境变量 PRIVATE_KEY 未设置");
+        }
         privateKeyString = privateKeyString.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").trim();
         byte[] privateKeyBytes = Base64.getDecoder().decode(privateKeyString);
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
@@ -28,12 +31,20 @@ public class GenerateWeatherJWT {
         PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
 
         // Header
-        String headerJson = "{\"alg\": \"EdDSA\", \"kid\": \""+System.getenv("KID")+"\"}";
+        String kid = System.getenv("KID");
+        if (kid == null || kid.isBlank()) {
+            throw new IllegalStateException("环境变量 KID 未设置");
+        }
+        String headerJson = "{\"alg\": \"EdDSA\", \"kid\": \"" + kid + "\"}";
 
         // Payload
+        String sub = System.getenv("SUB");
+        if (sub == null || sub.isBlank()) {
+            throw new IllegalStateException("环境变量 SUB 未设置");
+        }
         long iat = ZonedDateTime.now(ZoneOffset.UTC).toEpochSecond() - 30;
         long exp = iat + 86400;
-        String payloadJson = "{\"sub\": \""+System.getenv("SUB")+"\", \"iat\": " + iat + ", \"exp\": " + exp + "}";
+        String payloadJson = "{\"sub\": \"" + sub + "\", \"iat\": " + iat + ", \"exp\": " + exp + "}";
 
         // Base64url header+payload
         String headerEncoded = Base64.getUrlEncoder().encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));

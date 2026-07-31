@@ -21,8 +21,6 @@ import org.jcodec.common.DemuxerTrack;
 import org.jcodec.common.io.FileChannelWrapper;
 import org.jcodec.common.model.Packet;
 import org.jcodec.containers.mp4.demuxer.MP4Demuxer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -61,8 +59,14 @@ public class FileFormatConverter {
         TEMP_DIR.mkdirs();
     }
 
-    // ==================== 音频转换 ====================
 
+    /**
+     * 音频转换
+     * @param srcData
+     * @param srcMime
+     * @return
+     * @throws IOException
+     */
     public byte[] toWav(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
@@ -73,7 +77,7 @@ public class FileFormatConverter {
         };
     }
 
-    // ==================== 文档转换 ====================
+    /** 文档转换。 */
 
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
@@ -122,12 +126,12 @@ public class FileFormatConverter {
         };
     }
 
-    // ==================== uapis.cn API 调用 ====================
+    /** uapis.cn API 调用。 */
 
     public byte[] callMarkdownToPdfApi(String markdown, String theme, String paperSize) throws IOException {
-        String apiKey = System.getenv("UAPI_API_KEY");
-        if (apiKey == null) {
-            throw new IOException("UAPI_API_KEY 未设置，请注册 https://uapis.cn 获取");
+        String apiKey = System.getenv("UAPI_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "theme", theme, "paper_size", paperSize));
@@ -150,9 +154,9 @@ public class FileFormatConverter {
     }
 
     public String callMarkdownToHtmlApi(String markdown, boolean completePage) throws IOException {
-        String apiKey = System.getenv("UAPI_API_KEY");
-        if (apiKey == null) {
-            throw new IOException("UAPI_API_KEY 未设置，请注册 https://uapis.cn 获取");
+        String apiKey = System.getenv("UAPI_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "format", completePage ? "html" : "json"));
@@ -175,7 +179,7 @@ public class FileFormatConverter {
         }
     }
 
-    // ==================== 文档文本提取 ====================
+    /** 文档文本提取。 */
 
     private String extractDocxText(byte[] fileData) throws IOException {
         try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileData))) {
@@ -225,7 +229,7 @@ public class FileFormatConverter {
         }
     }
 
-    // ==================== 音频解码 ====================
+    /** 音频解码。 */
 
     private byte[] decodeMp3ToPcm(byte[] mp3Data) throws IOException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(mp3Data);
@@ -282,7 +286,7 @@ public class FileFormatConverter {
         pcm.write(b);
     }
 
-    // ==================== WAV 封装 ====================
+    /** WAV 封装。 */
 
     private byte[] writeWav(byte[] pcm, int sampleRate) throws IOException {
         int channels = 1, bits = 16;
@@ -322,7 +326,7 @@ public class FileFormatConverter {
         out.write((v >> 8) & 0xFF);
     }
 
-    // ==================== TXT / MD ↔ DOCX ====================
+    /** TXT / MD 与 DOCX 互转。 */
 
     private byte[] pdfToDocx(byte[] srcData) throws IOException {
         File tmp = null;
@@ -463,7 +467,7 @@ public class FileFormatConverter {
         return md.toString();
     }
 
-    // ==================== 临时文件管理 ====================
+    /** 临时文件管理。 */
 
     private File saveTemp(byte[] data, String suffix) throws IOException {
         File f = new File(TEMP_DIR, UUID.randomUUID().toString() + suffix);
