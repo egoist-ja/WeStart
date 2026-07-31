@@ -3,11 +3,11 @@ package com.westart.ai.westart.config;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ChatMessageDeserializer;
 import dev.langchain4j.data.message.ChatMessageSerializer;
-import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -22,9 +22,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RedisChatMemory implements ChatMemoryStore {
 
-    private static final Duration CHAT_MEMORY_TTL = Duration.ofHours(3L);
-
     private final RedisTemplate<String, String> redisTemplate;
+    @Value("${westart.memory.redis-key-prefix}")
+    private String redisKeyPrefix;
+    @Value("${westart.memory.chat-ttl}")
+    private Duration chatMemoryTtl;
+
 
     /**
      * 获取指定会话的聊天记忆。
@@ -34,12 +37,14 @@ public class RedisChatMemory implements ChatMemoryStore {
      */
     @Override
     public List<ChatMessage> getMessages(Object memoryId) {
-        String messagesJson =
-                redisTemplate.opsForValue().get(memoryId.toString());
+        String messagesJson = redisTemplate.opsForValue().get(redisKey(memoryId));
         if (StringUtils.isBlank(messagesJson)) {
+            log.debug("Redis短期记忆不存在或已经过期");
             return List.of();
         }
-        return ChatMessageDeserializer.messagesFromJson(messagesJson);
+        List<ChatMessage> messages = ChatMessageDeserializer.messagesFromJson(messagesJson);
+        log.debug("Redis短期记忆读取成功，messageCount={}", messages.size());
+        return messages;
     }
 
     /**
@@ -51,14 +56,17 @@ public class RedisChatMemory implements ChatMemoryStore {
     @Override
     public void updateMessages(Object memoryId, List<ChatMessage> messages) {
         if (messages == null || messages.isEmpty()) {
-            log.warn("消息记忆为空");
+            redisTemplate.delete(redisKey(memoryId));
+            log.debug("Redis短期记忆为空，已删除对应Key");
             return;
         }
         String messagesJson = ChatMessageSerializer.messagesToJson(messages);
         redisTemplate.opsForValue().set(
-                memoryId.toString(),
+                redisKey(memoryId),
                 messagesJson,
-                CHAT_MEMORY_TTL);
+                chatMemoryTtl);
+        log.debug("Redis短期记忆更新成功，messageCount={}，ttl={}",
+                messages.size(), chatMemoryTtl);
     }
 
     /**
@@ -68,6 +76,20 @@ public class RedisChatMemory implements ChatMemoryStore {
      */
     @Override
     public void deleteMessages(Object memoryId) {
-        redisTemplate.delete(memoryId.toString());
+        redisTemplate.delete(redisKey(memoryId));
+        log.debug("Redis短期记忆删除成功");
+    }
+
+    /**
+     * 生成带业务前缀的Redis短期记忆Key。
+     *
+     * @param memoryId 稳定聊天记忆ID
+     * @return Redis短期记忆Key
+     */
+    private String redisKey(Object memoryId) {
+        if (memoryId == null || StringUtils.isBlank(memoryId.toString())) {
+            throw new IllegalArgumentException("memoryId不能为空");
+        }
+        return redisKeyPrefix + memoryId;
     }
 }
