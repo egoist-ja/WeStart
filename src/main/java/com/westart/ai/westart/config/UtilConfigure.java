@@ -1,6 +1,7 @@
 package com.westart.ai.westart.config;
 
 import com.github.wechat.ilink.sdk.core.config.ILinkConfig;
+import com.google.gson.Gson;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.mcp.client.DefaultMcpClient;
@@ -44,6 +45,11 @@ public class UtilConfigure {
                 .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
                 .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                 .build();
+    }
+
+    @Bean
+    public Gson gson(){
+        return new Gson();
     }
 
     /**

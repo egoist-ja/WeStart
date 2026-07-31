@@ -2,6 +2,8 @@ package com.westart.ai.westart.service.impl;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.westart.ai.westart.DTO.ILinkClientSession;
+import dev.langchain4j.service.tool.ToolProvider;
+import dev.langchain4j.service.tool.search.ToolSearchStrategy;
 import io.micrometer.common.util.StringUtils;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +42,6 @@ public class ILinkClientSessionRegistry {
      */
     public void register(ILinkClientSession session) {
         Objects.requireNonNull(session, "session不能为空");
-
         ILinkClientSession existingSession = sessionMap.putIfAbsent(session.sessionId(), session);
         if (existingSession != null) {
             throw new IllegalStateException(

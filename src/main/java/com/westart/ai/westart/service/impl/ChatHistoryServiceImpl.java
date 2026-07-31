@@ -3,7 +3,7 @@ package com.westart.ai.westart.service.impl;
 import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 import com.westart.ai.westart.entity.ChatMessage;
-import com.westart.ai.westart.repository.ChatMessageMapperImpl;
+import com.westart.ai.westart.mapper.impl.ChatMessageMapperImpl;
 import com.westart.ai.westart.service.ChatHistoryService;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +30,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -48,20 +50,60 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
     private static final String IMAGE_MESSAGE_PLACEHOLDER = "[图片消息]";
     private static final String VIDEO_MESSAGE_PLACEHOLDER = "[视频消息]";
     private static final String UNSUPPORTED_MESSAGE_PLACEHOLDER = "[不支持的微信消息]";
-    private static final Duration BLOCK_TIMEOUT = Duration.ofSeconds(5L);
+    /**
+     * 已创建用户Stream的Redis Set索引后缀，用于应用重启恢复。
+     */
+    private static final String HISTORY_USER_INDEX_SUFFIX = ":users";
 
+    /**
+     * Redis Stream及用户索引操作模板。
+     */
     private final RedisTemplate<String, String> redisTemplate;
+
+    /**
+     * 聊天历史数据库访问组件。
+     */
     private final ChatMessageMapperImpl chatMessageMapper;
+
+    /**
+     * 每个用户独立Stream的公共Key前缀。
+     */
     @Value("${westart.memory.history-stream-key}")
     private String historyStreamKey;
+
+    /**
+     * 每个用户独立消费者组的公共名称前缀。
+     */
     @Value("${westart.memory.history-consumer-group}")
     private String historyConsumerGroup;
+
+    /**
+     * 单次从用户Stream读取的最大消息数。
+     */
     @Value("${westart.memory.history-batch-size}")
     private int historyBatchSize;
+
+    /**
+     * 阻塞读取用户Stream的轮询时间。
+     */
+    @Value("${westart.memory.history-poll-interval}")
+    private Duration historyPollInterval;
+
+    /**
+     * Pending消息允许被重新认领前的最短空闲时间。
+     */
     @Value("${westart.memory.history-pending-timeout}")
     private Duration historyPendingTimeout;
+
+    /**
+     * Pending消息进入死信Stream前的最大投递次数。
+     */
     @Value("${westart.memory.history-max-delivery-attempts}")
     private int historyMaxDeliveryAttempts;
+
+    /**
+     * 每个用户独立死信Stream的公共Key前缀。
+     */
     @Value("${westart.memory.history-dead-letter-stream-key}")
     private String historyDeadLetterStreamKey;
 
@@ -187,7 +229,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream().read(
                 Consumer.from(userConsumerGroup(userId), HISTORY_CONSUMER_NAME),
-                StreamReadOptions.empty().count(historyBatchSize).block(BLOCK_TIMEOUT),
+                StreamReadOptions.empty().count(historyBatchSize).block(historyPollInterval),
                 StreamOffset.create(streamKey, ReadOffset.lastConsumed()));
         if (records == null || records.isEmpty()) {
             return Collections.emptyList();
@@ -280,6 +322,18 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                 userId, ids.length, acknowledgedCount == null ? 0L : acknowledgedCount);
     }
 
+    @Override
+    public Set<String> findRegisteredHistoryUserIds() {
+        Set<String> userIds = redisTemplate.opsForSet().members(historyUserIndexKey());
+        if (userIds == null || userIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return userIds.stream()
+                .filter(Objects::nonNull)
+                .filter(userId -> !StringUtils.isBlank(userId))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
     // ========== Per-User Stream 私有方法 ==========
 
     /**
@@ -300,6 +354,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
 
         String streamKey = userStreamKey(userId);
         try {
+            registerHistoryUser(userId);
             RecordId recordId = redisTemplate.opsForStream().add(streamKey, fields);
             if (recordId == null) {
                 throw new IllegalStateException("Redis未返回Stream Record ID");
@@ -317,6 +372,22 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
      */
     private String userStreamKey(String userId) {
         return historyStreamKey + ":" + userId;
+    }
+
+    private String historyUserIndexKey() {
+        return historyStreamKey + HISTORY_USER_INDEX_SUFFIX;
+    }
+
+    /**
+     * 登记已经创建聊天历史Stream的用户，保证应用重启后能够恢复消费。
+     *
+     * @param userId 微信用户ID
+     */
+    private void registerHistoryUser(String userId) {
+        Long addedCount = redisTemplate.opsForSet().add(historyUserIndexKey(), userId);
+        if (addedCount == null) {
+            throw new IllegalStateException("Redis未返回用户Stream索引写入结果");
+        }
     }
 
     /**

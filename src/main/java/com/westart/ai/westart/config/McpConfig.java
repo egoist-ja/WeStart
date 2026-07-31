@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map;
 
 /**
  * MCP 配置。
@@ -82,6 +83,7 @@ public class McpConfig {
             throw new IllegalArgumentException("MCP authType 不能为空");
         }
         return switch (authType.trim().toLowerCase(Locale.ROOT)) {
+            case "none" -> context -> Map.of();
             case "bearer" -> new BearerMcpStrategy(serverConfig);
             case "flyai" -> new FlyaiMcpStrategy(serverConfig);
             default -> throw new IllegalArgumentException(
@@ -120,4 +122,3 @@ public class McpConfig {
         return mcpClientListeners;
     }
 }
-

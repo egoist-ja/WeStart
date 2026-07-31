@@ -7,14 +7,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@SpringBootConfiguration
 public class WestartApplication {
 
     public static void main(String[] args) {
 
         SpringApplication.run(WestartApplication.class, args);
         System.out.println("Westart Application Started");
-        System.out.println("test");
     }
 
 }

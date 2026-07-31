@@ -4,6 +4,7 @@ import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 聊天历史消息服务。
@@ -94,4 +95,13 @@ public interface ChatHistoryService {
      * @param recordIds Redis Stream Record ID集合
      */
     void acknowledgeUserMessages(String userId, List<String> recordIds);
+
+    /**
+     * 查询已经创建聊天历史Stream的微信用户。
+     *
+     * <p>该索引用于应用重启后恢复每个用户独立的Stream消费者。</p>
+     *
+     * @return 已登记的微信用户ID
+     */
+    Set<String> findRegisteredHistoryUserIds();
 }

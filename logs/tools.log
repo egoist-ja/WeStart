@@ -138,3 +138,4 @@ Caused by: com.alibaba.dashscope.exception.ApiException: {"statusCode":400,"mess
 2026-07-29 17:27:06.470 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 联网搜索完成，开始用大模型生成摘要
 2026-07-29 17:27:51.131 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 摘要生成完成，开始发送邮件至 349598982@qq.com
 2026-07-29 17:28:11.382 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 邮件发送完成
+2026-07-30 17:13:26.120 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置

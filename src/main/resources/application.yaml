@@ -9,21 +9,24 @@ spring:
     username: root
     password: ${PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
   threads:
     virtual:
       enabled: true
-  data:
-    redis:
-      url: ${REDIS_URL:redis://127.0.0.1:6379}
-  datasource:
-    url: jdbc:mysql://127.0.0.1:3306/westart?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
-    username: westart
-    password: 123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
 
 westart:
   memory:
@@ -33,13 +36,13 @@ westart:
     history-stream-key: "westart:stream:chat-history"
     history-consumer-group: "westart-chat-history-group"
     history-batch-size: 20
+    history-token-threshold: 8000
     history-max-wait: 1m
     history-poll-interval: 5s
+    history-idle-timeout: 15s
     history-pending-timeout: 1m
     history-max-delivery-attempts: 3
     history-dead-letter-stream-key: "stream:history:deadletter"
-
-
 
 app:
   temp:
@@ -55,8 +58,8 @@ mcp:
       url: https://flyai.open.fliggy.com/mcp
       auth-type: flyai
       api-key: ${FLYAI_API_KEY}
-      log-requests: false
-      log-responses: false
+      log-requests: true
+      log-responses: true
 
     luckin:
       name: 瑞幸
@@ -65,9 +68,27 @@ mcp:
       url: https://gwmcp.lkcoffee.com/order/user/mcp
       auth-type: bearer
       api-key: ${LUCKIN_API_KEY}
+      log-requests: true
+      log-responses: true
+
+    meituan:
+      name: 美团
+      enabled: true
+      transport: streamable-http
+      url: https://mcp.api-inference.modelscope.net/dc4bfc0e026045/mcp
+      auth-type: bearer
+      api-key: ${MODEL_SCOPE}
       log-requests: false
       log-responses: false
-
+    hsr:
+      name: 12306
+      enabled: true
+      transport: streamable-http
+      url: http://localhost:8000/mcp
+      auth-type: none
+      api-key: ${MODEL_SCOPE}
+      log-requests: false
+      log-responses: false
     mc:
       name: 麦当劳
       enabled: true

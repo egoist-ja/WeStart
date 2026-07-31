@@ -1,7 +1,7 @@
 package com.westart.ai.westart.service.impl;
 
 import com.westart.ai.westart.entity.UserMemory;
-import com.westart.ai.westart.repository.UserMemoryMapperImpl;
+import com.westart.ai.westart.mapper.impl.UserMemoryMapperImpl;
 import com.westart.ai.westart.service.ChatHistoryService;
 import com.westart.ai.westart.service.MemoryService;
 import com.westart.ai.westart.service.ai.MemoryAssistant;
@@ -29,6 +29,12 @@ import java.util.stream.Collectors;
 public class MemoryServiceImpl implements MemoryService {
 
     private static final String ROLE_USER = "USER";
+
+    /**
+     * 当前阶段每个用户唯一的完整画像键。
+     *
+     * <p>数据库以wechat_user_id区分用户，以该固定键定位用户唯一画像行。</p>
+     */
     private static final String USER_PROFILE_MEMORY_KEY = "user_profile";
 
     private final MemoryAssistant memoryAssistant;
@@ -279,7 +285,8 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     public List<UserMemory> getUserMemories(String wechatUserId) {
         String memoryId = resolveMemoryId(wechatUserId);
-        List<UserMemory> memories = userMemoryMapper.selectByWechatUserId(memoryId);
+        List<UserMemory> memories = userMemoryMapper.selectByWechatUserIdAndMemoryKey(
+                memoryId, USER_PROFILE_MEMORY_KEY);
         log.info("用户长期记忆查询完成，memoryCount={}", memories.size());
         return List.copyOf(memories);
     }

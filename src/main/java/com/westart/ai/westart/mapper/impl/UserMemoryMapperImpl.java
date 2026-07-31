@@ -1,4 +1,4 @@
-package com.westart.ai.westart.repository;
+package com.westart.ai.westart.mapper.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -6,7 +6,6 @@ import com.westart.ai.westart.entity.UserMemory;
 import com.westart.ai.westart.mapper.UserMemoryMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -22,17 +21,23 @@ public class UserMemoryMapperImpl {
     private final UserMemoryMapper userMemoryMapper;
 
     /**
-     * 查询指定微信用户的全部长期记忆，按更新时间倒序。
+     * 查询指定微信用户唯一的长期画像。
+     *
+     * <p>当前阶段每个微信用户只绑定一个固定memoryKey的完整画像，
+     * 不会把不同用户的画像合并到同一条记录。</p>
      */
-    public List<UserMemory> selectByWechatUserId(String wechatUserId) {
-        if (wechatUserId == null || wechatUserId.isBlank()) {
+    public List<UserMemory> selectByWechatUserIdAndMemoryKey(
+            String wechatUserId, String memoryKey) {
+        if (wechatUserId == null || wechatUserId.isBlank()
+                || memoryKey == null || memoryKey.isBlank()) {
             return List.of();
         }
 
         LambdaQueryWrapper<UserMemory> wrapper = new LambdaQueryWrapper<UserMemory>()
                 .eq(UserMemory::getWechatUserId, wechatUserId)
-                .orderByDesc(UserMemory::getUpdatedAt);
-        return userMemoryMapper.selectList(wrapper);
+                .eq(UserMemory::getMemoryKey, memoryKey);
+        UserMemory userMemory = userMemoryMapper.selectOne(wrapper);
+        return userMemory == null ? List.of() : List.of(userMemory);
     }
 
     /**

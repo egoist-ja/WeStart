@@ -1,4 +1,4 @@
-package com.westart.ai.westart.repository;
+package com.westart.ai.westart.mapper.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -6,7 +6,6 @@ import com.westart.ai.westart.entity.ChatMessage;
 import com.westart.ai.westart.mapper.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collections;
@@ -29,12 +28,7 @@ public class ChatMessageMapperImpl {
         if (messages == null || messages.isEmpty()) {
             return 0;
         }
-        int count = 0;
-        for (ChatMessage message : messages) {
-            chatMessageMapper.insertOrUpdate(message);
-            count++;
-        }
-        return count;
+        return chatMessageMapper.insertBatchIgnoreDuplicates(messages);
     }
 
     /**
