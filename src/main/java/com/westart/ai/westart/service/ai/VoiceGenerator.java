@@ -5,7 +5,6 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.spring.AiService;
 import dev.langchain4j.service.spring.AiServiceWiringMode;
 
-import java.util.List;
 
 /**
  * 根据模型回答生成可直接发送的语音回复。

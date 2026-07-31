@@ -9,8 +9,6 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -46,39 +44,44 @@ public class DailyHotTool {
     public String sendDailyHotToEmail(String toEmail) {
         long startTime = System.currentTimeMillis();
         log.info("[DailyHotTool] sendDailyHotToEmail 开始执行，toEmail={}", toEmail);
-        
-        String dateStr = LocalDate.now().format(DATE_FORMATTER);
-        log.info("[DailyHotTool] 开始搜索今日热点，dateStr={}", dateStr);
-        
-        long searchStartTime = System.currentTimeMillis();
-        String searchResult = webSearchTool.searchWeb("今日热点");
-        long searchDuration = System.currentTimeMillis() - searchStartTime;
-        log.info("[DailyHotTool] 联网搜索完成，耗时={}ms，resultLength={} chars", searchDuration, 
-                searchResult != null ? searchResult.length() : 0);
-        
-        if (isSearchFailed(searchResult)) {
+
+        try {
+            String dateStr = LocalDate.now().format(DATE_FORMATTER);
+            log.info("[DailyHotTool] 开始搜索今日热点，dateStr={}", dateStr);
+
+            long searchStartTime = System.currentTimeMillis();
+            String searchResult = webSearchTool.searchWeb("今日热点");
+            long searchDuration = System.currentTimeMillis() - searchStartTime;
+            log.info("[DailyHotTool] 联网搜索完成，耗时={}ms，resultLength={} chars", searchDuration,
+                    searchResult != null ? searchResult.length() : 0);
+
+            if (isSearchFailed(searchResult)) {
+                long duration = System.currentTimeMillis() - startTime;
+                log.warn("[DailyHotTool] 搜索失败，耗时={}ms", duration);
+                return "获取今日热点失败，请稍后重试。";
+            }
+
+            log.info("[DailyHotTool] 开始用大模型生成摘要");
+            long summaryStartTime = System.currentTimeMillis();
+            String summary = summarizeHotTopics(searchResult, dateStr);
+            long summaryDuration = System.currentTimeMillis() - summaryStartTime;
+            log.info("[DailyHotTool] 摘要生成完成，耗时={}ms，summaryLength={} chars", summaryDuration,
+                    summary != null ? summary.length() : 0);
+
+            log.info("[DailyHotTool] 开始发送邮件，toEmail={}", toEmail);
+            long emailStartTime = System.currentTimeMillis();
+            sendHtmlEmail(toEmail, dateStr + " 今日热点", summary);
+            long emailDuration = System.currentTimeMillis() - emailStartTime;
+            log.info("[DailyHotTool] 邮件发送完成，耗时={}ms", emailDuration);
+
+            long totalDuration = System.currentTimeMillis() - startTime;
+            log.info("[DailyHotTool] sendDailyHotToEmail 执行成功，总耗时={}ms", totalDuration);
+            return "今日热点已发送至 " + toEmail;
+        } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.warn("[DailyHotTool] 搜索失败，耗时={}ms", duration);
-            String msg = "获取今日热点失败，请稍后重试。";
-            return msg;
+            log.error("[DailyHotTool] sendDailyHotToEmail 执行失败，toEmail={}，耗时={}ms", toEmail, duration, e);
+            return "获取今日热点失败，请稍后重试。";
         }
-        
-        log.info("[DailyHotTool] 开始用大模型生成摘要");
-        long summaryStartTime = System.currentTimeMillis();
-        String summary = summarizeHotTopics(searchResult, dateStr);
-        long summaryDuration = System.currentTimeMillis() - summaryStartTime;
-        log.info("[DailyHotTool] 摘要生成完成，耗时={}ms，summaryLength={} chars", summaryDuration, 
-                summary != null ? summary.length() : 0);
-        
-        log.info("[DailyHotTool] 开始发送邮件，toEmail={}", toEmail);
-        long emailStartTime = System.currentTimeMillis();
-        sendHtmlEmail(toEmail, dateStr + " 今日热点", summary);
-        long emailDuration = System.currentTimeMillis() - emailStartTime;
-        log.info("[DailyHotTool] 邮件发送完成，耗时={}ms", emailDuration);
-        
-        long totalDuration = System.currentTimeMillis() - startTime;
-        log.info("[DailyHotTool] sendDailyHotToEmail 执行成功，总耗时={}ms", totalDuration);
-        return "今日热点已发送至 " + toEmail;
     }
 
     private boolean isSearchFailed(String result) {
@@ -112,11 +115,18 @@ public class DailyHotTool {
 
     private void sendHtmlEmail(String to, String subject, String content) {
         log.debug("[DailyHotTool] sendHtmlEmail 开始，to={}, subject={}", to, subject);
-        
+
+        String mailHost = environment.getProperty("spring.mail.host", "");
+        String mailUsername = environment.getProperty("spring.mail.username", "");
+        if (mailHost.isBlank() || mailUsername.isBlank()) {
+            log.error("邮件发送失败，邮件服务未配置，MAIL_HOST={}，MAIL_USERNAME={}", mailHost, mailUsername);
+            throw new RuntimeException("邮件发送失败：邮件服务未配置，请稍后重试。");
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(environment.getProperty("spring.mail.username"));
+            helper.setFrom(mailUsername);
             helper.setTo(to);
             helper.setSubject(subject);
             String html = "<html><body style='font-family: Microsoft YaHei, sans-serif; padding: 20px;'>"
@@ -128,8 +138,8 @@ public class DailyHotTool {
             mailSender.send(message);
             log.debug("[DailyHotTool] sendHtmlEmail 完成");
         } catch (MessagingException e) {
-            log.error("[DailyHotTool] sendHtmlEmail 失败，to={}, subject={}", to, subject, e);
-            throw new RuntimeException("邮件发送失败", e);
+            log.error("[DailyHotTool] 邮件发送失败，to={}, subject={}", to, subject, e);
+            throw new RuntimeException("邮件发送失败，请稍后重试。", e);
         }
     }
 }

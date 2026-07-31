@@ -11,8 +11,6 @@ import dev.langchain4j.agent.tool.ToolMemoryId;
 import dev.langchain4j.data.message.TextContent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -83,7 +81,7 @@ public class FileFormatTool {
         return client.orElse(null);
     }
 
-    // ==================== 工具方法 ====================
+    /** 工具方法。 */
 
     @Tool(value = "将用户之前发送的文件转换为Word文档(.docx)。" +
             "fileKey的值来自之前用户消息中的[文件ID: xxx]，直接提取xxx传入即可。")

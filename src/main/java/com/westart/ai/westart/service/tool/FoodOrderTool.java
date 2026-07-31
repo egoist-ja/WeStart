@@ -95,7 +95,8 @@ public class FoodOrderTool {
             return formatRestaurantList(responseBody, keywords);
 
         } catch (IOException e) {
-            throw new RuntimeException("周边餐厅搜索失败", e);
+            log.error("周边餐厅搜索失败，location={}，keywords={}，radius={}", location, keywords, radius, e);
+            return "周边餐厅搜索失败，请稍后重试。";
         }
     }
 
@@ -199,8 +200,8 @@ public class FoodOrderTool {
             return output.toString();
 
         } catch (Exception e) {
-            log.error("解析高德周边搜索响应失败", e);
-            throw new RuntimeException("解析餐厅搜索结果失败", e);
+            log.error("解析餐厅搜索结果失败", e);
+            return "餐厅搜索结果解析失败，请稍后重试。";
         }
     }
 

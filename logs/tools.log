@@ -1,141 +1,74 @@
-2026-07-29 14:47:37.088 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=49
-2026-07-29 14:47:37.090 ERROR [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 调用图片生成模型失败，contextLength=49
-java.lang.NullPointerException: Cannot invoke "String.contains(java.lang.CharSequence)" because "modelName" is null
-	at dev.langchain4j.community.model.dashscope.QwenHelper.isMultimodalModelName(QwenHelper.java:457)
-	at dev.langchain4j.community.model.dashscope.QwenHelper.isMultimodalModel(QwenHelper.java:491)
-	at dev.langchain4j.community.model.dashscope.QwenChatModel.doChat(QwenChatModel.java:167)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:61)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:36)
-	at dev.langchain4j.guardrail.SynchronousChatExecutor.execute(SynchronousChatExecutor.java:32)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.executeInternal(AbstractChatExecutor.java:66)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.execute(AbstractChatExecutor.java:52)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:333)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy125.generateImage(Unknown Source)
-	at com.westart.ai.westart.service.tool.ImageGenerateTool.generateImage(ImageGenerateTool.java:62)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
-	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
-	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
-	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
-	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
-	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
-	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy127.reply(Unknown Source)
-	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:125)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
-	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
-2026-07-29 14:50:14.947 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=57
-2026-07-29 14:50:14.948 ERROR [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 调用图片生成模型失败，contextLength=57
-java.lang.NullPointerException: Cannot invoke "String.contains(java.lang.CharSequence)" because "modelName" is null
-	at dev.langchain4j.community.model.dashscope.QwenHelper.isMultimodalModelName(QwenHelper.java:457)
-	at dev.langchain4j.community.model.dashscope.QwenHelper.isMultimodalModel(QwenHelper.java:491)
-	at dev.langchain4j.community.model.dashscope.QwenChatModel.doChat(QwenChatModel.java:167)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:61)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:36)
-	at dev.langchain4j.guardrail.SynchronousChatExecutor.execute(SynchronousChatExecutor.java:32)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.executeInternal(AbstractChatExecutor.java:66)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.execute(AbstractChatExecutor.java:52)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:333)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy125.generateImage(Unknown Source)
-	at com.westart.ai.westart.service.tool.ImageGenerateTool.generateImage(ImageGenerateTool.java:62)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
-	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
-	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
-	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
-	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
-	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
-	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy127.reply(Unknown Source)
-	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:125)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
-	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
-2026-07-29 15:35:22.046 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=46
-2026-07-29 15:35:31.728 ERROR [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 调用图片生成模型失败，contextLength=46
-com.alibaba.dashscope.exception.ApiException: {"statusCode":400,"message":"Green net check failed for output image","code":"DataInspectionFailed","isJson":true,"requestId":"4dcfa381-9d7e-97f9-b16e-4f838417c254"}; status body:{"statusCode":400,"message":"Green net check failed for output image","code":"DataInspectionFailed","isJson":true,"requestId":"4dcfa381-9d7e-97f9-b16e-4f838417c254"}
-	at com.alibaba.dashscope.protocol.okhttp.OkHttpHttpClient.send(OkHttpHttpClient.java:246)
-	at com.alibaba.dashscope.api.SynchronizeHalfDuplexApi.call(SynchronizeHalfDuplexApi.java:58)
-	at com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation.call(MultiModalConversation.java:96)
-	at dev.langchain4j.community.model.dashscope.QwenChatModel.generateByMultimodalModel(QwenChatModel.java:156)
-	at dev.langchain4j.community.model.dashscope.QwenChatModel.doChat(QwenChatModel.java:168)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:61)
-	at dev.langchain4j.model.chat.ChatModel.chat(ChatModel.java:36)
-	at dev.langchain4j.guardrail.SynchronousChatExecutor.execute(SynchronousChatExecutor.java:32)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.executeInternal(AbstractChatExecutor.java:66)
-	at dev.langchain4j.guardrail.AbstractChatExecutor.execute(AbstractChatExecutor.java:52)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:333)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy125.generateImage(Unknown Source)
-	at com.westart.ai.westart.service.tool.ImageGenerateTool.generateImage(ImageGenerateTool.java:62)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
-	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
-	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
-	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
-	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
-	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
-	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy127.reply(Unknown Source)
-	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:125)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
-	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
-Caused by: com.alibaba.dashscope.exception.ApiException: {"statusCode":400,"message":"Green net check failed for output image","code":"DataInspectionFailed","isJson":true,"requestId":"4dcfa381-9d7e-97f9-b16e-4f838417c254"}; status body:{"statusCode":400,"message":"Green net check failed for output image","code":"DataInspectionFailed","isJson":true,"requestId":"4dcfa381-9d7e-97f9-b16e-4f838417c254"}
-	... 34 common frames omitted
-2026-07-29 15:36:14.525 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=61
-2026-07-29 15:36:22.308 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 图片生成成功，contextLength=61，imageCount=1
-2026-07-29 15:36:56.684 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=77
-2026-07-29 15:37:05.777 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 图片生成成功，contextLength=77，imageCount=1
-2026-07-29 16:01:21.150 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=66
-2026-07-29 16:01:31.488 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 图片生成成功，contextLength=66，imageCount=1
-2026-07-29 16:03:05.785 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 开始调用图片生成模型，contextLength=74
-2026-07-29 16:03:16.418 INFO  [wechat-user-message-0] c.w.a.w.s.tool.ImageGenerateTool - 图片生成成功，contextLength=74，imageCount=1
-2026-07-29 16:34:57.839 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 搜索今日热点
-2026-07-29 16:34:57.840 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 为空
-2026-07-29 16:34:57.841 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 联网搜索完成，开始用大模型生成摘要
-2026-07-29 16:35:12.954 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 摘要生成完成，开始发送邮件至 2820305219@qq.com
-2026-07-29 16:35:33.549 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 邮件发送完成
-2026-07-29 16:55:54.262 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 搜索今日热点
-2026-07-29 16:55:54.262 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
-2026-07-29 16:56:00.397 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=6134
-2026-07-29 16:56:00.398 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 联网搜索完成，开始用大模型生成摘要
-2026-07-29 16:56:39.487 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 摘要生成完成，开始发送邮件至 2820305219@qq.com
-2026-07-29 16:57:00.518 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 邮件发送完成
-2026-07-29 16:57:12.365 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 搜索今日热点
-2026-07-29 16:57:12.365 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
-2026-07-29 16:57:12.423 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=57
-2026-07-29 16:57:12.424 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 联网搜索完成，开始用大模型生成摘要
-2026-07-29 16:57:54.386 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 摘要生成完成，开始发送邮件至 2820305219@qq.com
-2026-07-29 16:58:14.460 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 邮件发送完成
-2026-07-29 17:27:06.100 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 搜索今日热点
-2026-07-29 17:27:06.102 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
-2026-07-29 17:27:06.470 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=368
-2026-07-29 17:27:06.470 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 联网搜索完成，开始用大模型生成摘要
-2026-07-29 17:27:51.131 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 摘要生成完成，开始发送邮件至 349598982@qq.com
-2026-07-29 17:28:11.382 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - 邮件发送完成
+2026-07-31 14:58:52.614 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
+2026-07-31 14:58:52.618 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
+2026-07-31 14:58:52.619 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
+2026-07-31 14:58:52.619 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=1ms，resultLength=20 chars
+2026-07-31 14:58:52.621 WARN  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 搜索失败，耗时=7ms
+2026-07-31 15:04:34.786 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
+2026-07-31 15:04:34.787 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
+2026-07-31 15:04:34.788 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
+2026-07-31 15:04:34.789 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=2ms，resultLength=20 chars
+2026-07-31 15:04:34.789 WARN  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 搜索失败，耗时=3ms
+2026-07-31 15:07:03.703 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
+2026-07-31 15:13:02.354 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
+2026-07-31 15:13:02.355 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
+2026-07-31 15:13:02.355 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
+2026-07-31 15:13:04.890 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=2535
+2026-07-31 15:13:04.890 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=2535ms，resultLength=3400 chars
+2026-07-31 15:13:04.891 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始用大模型生成摘要
+2026-07-31 15:16:06.926 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
+2026-07-31 15:16:06.926 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
+2026-07-31 15:16:06.927 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
+2026-07-31 15:16:07.065 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=138
+2026-07-31 15:16:07.065 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=139ms，resultLength=3400 chars
+2026-07-31 15:16:07.066 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始用大模型生成摘要
+2026-07-31 15:17:10.387 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 摘要生成完成，耗时=63321ms，summaryLength=1085 chars
+2026-07-31 15:17:10.388 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始发送邮件，toEmail=349598982@qq.com
+2026-07-31 15:17:11.716 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 邮件发送完成，耗时=1328ms
+2026-07-31 15:17:11.716 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 执行成功，总耗时=64790ms
 2026-07-30 17:13:26.120 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
+2026-07-31 16:44:25.589 ERROR [wechat-user-message-1] c.w.a.w.service.tool.LogisticsTool - 快递物流查询失败，trackingNumber=TEST，carrierCode=，phone=
+java.io.IOException: 模拟网络连接超时：connect timed out
+	at com.westart.ai.westart.service.tool.LogisticsTool.queryLogistics(LogisticsTool.java:33)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
+	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
+	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
+	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
+	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
+	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
+	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
+	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
+	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
+	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
+	at jdk.proxy2/jdk.proxy2.$Proxy133.reply(Unknown Source)
+	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:140)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
+2026-07-31 16:51:01.843 ERROR [wechat-user-message-1] c.w.a.w.service.tool.LogisticsTool - 快递物流查询失败，trackingNumber=TEST，carrierCode=null，phone=null
+java.io.IOException: 模拟网络连接超时：connect timed out
+	at com.westart.ai.westart.service.tool.LogisticsTool.queryLogistics(LogisticsTool.java:37)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
+	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
+	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
+	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
+	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
+	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
+	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
+	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
+	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
+	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
+	at jdk.proxy2/jdk.proxy2.$Proxy133.reply(Unknown Source)
+	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:140)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
+	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)

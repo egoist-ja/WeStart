@@ -71,7 +71,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德地理编码失败", e);
+            log.error("高德地理编码失败，address={}，city={}", address, city, e);
+            return "地理编码查询失败，请稍后重试。";
         }
     }
 
@@ -93,7 +94,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德逆地理编码失败", e);
+            log.error("高德逆地理编码失败，location={}", location, e);
+            return "逆地理编码查询失败，请稍后重试。";
         }
     }
 
@@ -126,7 +128,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德POI关键字搜索失败", e);
+            log.error("高德POI关键字搜索失败，keywords={}，city={}，types={}", keywords, city, types, e);
+            return "POI搜索失败，请稍后重试。";
         }
     }
 
@@ -158,7 +161,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德POI周边搜索失败", e);
+            log.error("高德POI周边搜索失败，location={}，keywords={}，radius={}", location, keywords, radius, e);
+            return "周边搜索失败，请稍后重试。";
         }
     }
     //IP定位
@@ -180,7 +184,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德IP定位失败", e);
+            log.error("高德IP定位失败，ip={}", ip, e);
+            return "IP定位失败，请稍后重试。";
         }
     }
 
@@ -212,7 +217,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德驾车路线规划失败", e);
+            log.error("高德驾车路线规划失败，origin={}，destination={}，strategy={}", origin, destination, strategy, e);
+            return "驾车路线规划失败，请稍后重试。";
         }
     }
 
@@ -241,7 +247,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德公交路线规划失败", e);
+            log.error("高德公交路线规划失败，origin={}，destination={}，city={}，strategy={}", origin, destination, city, strategy, e);
+            return "公交路线规划失败，请稍后重试。";
         }
     }
 
@@ -263,7 +270,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德步行路线规划失败", e);
+            log.error("高德步行路线规划失败，origin={}，destination={}", origin, destination, e);
+            return "步行路线规划失败，请稍后重试。";
         }
     }
 
@@ -285,7 +293,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德骑行路线规划失败", e);
+            log.error("高德骑行路线规划失败，origin={}，destination={}", origin, destination, e);
+            return "骑行路线规划失败，请稍后重试。";
         }
     }
 
@@ -312,7 +321,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德距离测量失败", e);
+            log.error("高德距离测量失败，origins={}，destination={}，type={}", origins, destination, type, e);
+            return "距离测量失败，请稍后重试。";
         }
     }
 
@@ -339,7 +349,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德行政区域查询失败", e);
+            log.error("高德行政区域查询失败，keywords={}，subdistrict={}", keywords, subdistrict, e);
+            return "行政区域查询失败，请稍后重试。";
         }
     }
 
@@ -365,7 +376,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德输入提示查询失败", e);
+            log.error("高德输入提示查询失败，keywords={}，city={}", keywords, city, e);
+            return "地址输入提示查询失败，请稍后重试。";
         }
     }
 
@@ -405,7 +417,8 @@ public class GaodeMapTool {
                     + (markers != null && !markers.isBlank()
                         ? "\n标注点：" + markers : "");
         } catch (IllegalStateException e) {
-            throw new RuntimeException("高德静态地图生成失败：API Key 未配置", e);
+            log.error("高德静态地图生成失败，AMAP_KEY 环境变量未设置", e);
+            return "静态地图生成失败：地图服务未配置，请稍后重试。";
         }
     }
 
@@ -431,7 +444,8 @@ public class GaodeMapTool {
 
             return executeRequest(url);
         } catch (IOException e) {
-            throw new RuntimeException("高德坐标转换失败", e);
+            log.error("高德坐标转换失败，locations={}，coordsys={}", locations, coordsys, e);
+            return "坐标转换失败，请稍后重试。";
         }
     }
 

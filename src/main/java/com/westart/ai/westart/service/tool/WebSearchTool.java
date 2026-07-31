@@ -63,9 +63,9 @@ public class WebSearchTool{
             return "联网搜索失败：缺少有效的搜索关键词。";
         }
 
-        String apiKey = environment.getProperty("websearch.api-key", "");
-        if (apiKey.isBlank()) {
-            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置");
+        String apiKey = System.getenv("UAPI_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 未设置");
             return "联网搜索工具尚未配置，无法查询实时信息。";
         }
 
