@@ -9,12 +9,10 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
+import io.milvus.v2.service.vector.response.UpsertResp;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +21,6 @@ import java.util.Map;
 /**
  * 工具向量存储适配器。
  */
-@Slf4j
-@Component
 @RequiredArgsConstructor
 public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
 
@@ -40,9 +36,7 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
      * @return 向量主键
      */
     @Override
-    public String add(Embedding embedding) {
-        return "";
-    }
+    public String add(Embedding embedding) {return "";}
 
     /**
      * 使用指定主键添加不包含工具实体的向量。
@@ -51,9 +45,7 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
      * @param embedding 工具向量
      */
     @Override
-    public void add(String id, Embedding embedding) {
-
-    }
+    public void add(String id, Embedding embedding) {}
 
     /**
      * 添加工具实体及其向量。
@@ -80,7 +72,7 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
     }
 
     /**
-     * 批量添加工具实体及其向量。
+     * 批量新增或更新工具实体及其向量。
      *
      * @param embeddings 工具向量列表
      * @param toolEntities 工具实体列表
@@ -101,25 +93,25 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
         }
 
         List<ToolEntity> entitiesToInsert = getToolEntities(embeddings, toolEntities);
-        InsertResp response;
+        UpsertResp response;
         try {
-            response = toolRepository.insertBatch(entitiesToInsert);
+            response = toolRepository.upsertBatch(entitiesToInsert);
         } catch (RuntimeException e) {
-            throw new IllegalStateException("批量插入工具向量失败", e);
+            throw new IllegalStateException("批量新增或更新工具向量失败", e);
         }
         if (response == null) {
-            throw new IllegalStateException("批量插入工具向量未返回结果");
+            throw new IllegalStateException("批量新增或更新工具向量未返回结果");
         }
-        if (response.getInsertCnt() != entitiesToInsert.size()) {
+        if (response.getUpsertCnt() != entitiesToInsert.size()) {
             throw new IllegalStateException(
-                    "批量插入工具向量数量不一致，期望："
+                    "批量新增或更新工具向量数量不一致，期望："
                             + entitiesToInsert.size()
                             + "，实际："
-                            + response.getInsertCnt());
+                            + response.getUpsertCnt());
         }
         List<Object> primaryKeys = response.getPrimaryKeys();
         if (primaryKeys == null || primaryKeys.size() != entitiesToInsert.size()) {
-            throw new IllegalStateException("批量插入工具向量返回的主键数量不一致");
+            throw new IllegalStateException("批量新增或更新工具向量返回的主键数量不一致");
         }
         return primaryKeys.stream()
                 .map(String::valueOf)

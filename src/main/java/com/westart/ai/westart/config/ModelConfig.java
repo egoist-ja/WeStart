@@ -1,5 +1,6 @@
 package com.westart.ai.westart.config;
 
+import com.westart.ai.westart.listener.AssistantListener;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
@@ -7,9 +8,8 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Duration;
 import java.util.List;
-
+import java.util.Map;
 
 @Configuration
 public class ModelConfig {
@@ -22,13 +22,14 @@ public class ModelConfig {
      * @return
      */
     @Bean
-    public OpenAiChatModel weChatAssistantModel(){
+    public OpenAiChatModel weChatAssistantModel(
+            AssistantListener assistantListener) {
         return OpenAiChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
                 .modelName("qwen3.7-plus")
-                .timeout(Duration.ofSeconds(120))
-                .listeners(List.of())
+                .customParameters(Map.of("enable_thinking", false))
+                .listeners(List.of(assistantListener))
                 .build();
     }
 
