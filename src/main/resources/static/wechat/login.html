@@ -554,8 +554,6 @@
             overText = hasText(e.target);
         });
 
-        let activeTextEl = null;
-
         function animate() {
             cx += (mx - cx) * 0.18;
             cy += (my - cy) * 0.18;
@@ -571,29 +569,10 @@
                 invert.classList.add('active');
                 ring.classList.add('active');
                 dot.classList.add('active');
-
-                /* 找到光标下的文字元素并放大 */
-                const el = document.elementFromPoint(mx, my);
-                let textEl = el;
-                while (textEl && textEl !== document.body && !hasText(textEl)) {
-                    textEl = textEl.parentElement;
-                }
-                if (textEl && textEl !== document.body && textEl !== activeTextEl) {
-                    if (activeTextEl) { activeTextEl.style.transform = ''; activeTextEl.style.transition = ''; }
-                    textEl.style.transition = 'transform 0.4s cubic-bezier(.25, .1, .25, 1)';
-                    textEl.style.transform = 'scale(1.1)';
-                    activeTextEl = textEl;
-                }
             } else {
                 invert.classList.remove('active');
                 ring.classList.remove('active');
                 dot.classList.remove('active');
-
-                if (activeTextEl) {
-                    activeTextEl.style.transform = '';
-                    activeTextEl.style.transition = '';
-                    activeTextEl = null;
-                }
             }
 
             requestAnimationFrame(animate);
