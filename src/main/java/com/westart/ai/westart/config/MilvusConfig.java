@@ -72,7 +72,7 @@ public class MilvusConfig {
                 .dataType(DataType.VarChar)
                 .fieldName("id")
                 .isPrimaryKey(true)
-                .autoID(true)
+                .autoID(false)
                 .maxLength(32)
                 .build());
         schema.addField(AddFieldReq.builder()
@@ -88,7 +88,7 @@ public class MilvusConfig {
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
                 .fieldName("description")
-                .maxLength(512)
+                .maxLength(1536)
                 .enableAnalyzer(true)
                 .enableMatch(true)
                 .build());

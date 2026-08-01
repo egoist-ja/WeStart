@@ -185,10 +185,10 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         }
 
         int affectedRows = chatMessageMapper.markMemoryProcessed(normalizedMessageIds);
-        log.info(
-                "聊天消息记忆处理状态批量更新完成，messageCount={}，affectedRows={}",
-                normalizedMessageIds.size(),
-                affectedRows);
+//        log.info(
+//                "聊天消息记忆处理状态批量更新完成，messageCount={}，affectedRows={}",
+//                normalizedMessageIds.size(),
+//                affectedRows);
         return affectedRows;
     }
 
@@ -238,7 +238,7 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         List<StreamMessage> messages = records.stream()
                 .map(this::toStreamMessage)
                 .toList();
-        log.info("用户Stream阻塞读取成功，userId={}，messageCount={}", userId, messages.size());
+//        log.info("用户Stream阻塞读取成功，userId={}，messageCount={}", userId, messages.size());
         return messages;
     }
 
@@ -359,8 +359,8 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             if (recordId == null) {
                 throw new IllegalStateException("Redis未返回Stream Record ID");
             }
-            log.info("消息写入用户Stream成功，userId={}，recordId={}，role={}",
-                    userId, recordId.getValue(), role);
+//            log.info("消息写入用户Stream成功，userId={}，recordId={}，role={}",
+//                    userId, recordId.getValue(), role);
         } catch (RuntimeException exception) {
             throw new IllegalStateException(
                     "消息写入用户Stream失败，userId=" + userId + "，role=" + role, exception);

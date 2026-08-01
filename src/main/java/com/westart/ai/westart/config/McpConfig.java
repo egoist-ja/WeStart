@@ -2,6 +2,7 @@ package com.westart.ai.westart.config;
 
 import com.westart.ai.westart.config.strategy.BearerMcpStrategy;
 import com.westart.ai.westart.config.strategy.FlyaiMcpStrategy;
+import com.westart.ai.westart.service.tool.ToolRegistry;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.mcp.McpToolProvider;
@@ -37,7 +38,7 @@ public class McpConfig {
      * @return MCP 工具提供者
      */
     @Bean
-    public McpToolProvider mcpToolProvider(List<McpClientListener> clientListeners) {
+    public McpToolProvider mcpToolProvider(List<McpClientListener> clientListeners, ToolRegistry toolRegistry) {
         List<McpClient> mcpClients = new ArrayList<>();
         mcpProperties.getServers().forEach((serverKey, serverConfig) -> {
             if (serverConfig == null || !serverConfig.isEnabled()) {
@@ -61,6 +62,7 @@ public class McpConfig {
                         .pingTimeout(Duration.ofSeconds(10))
                         .build();
                 mcpClients.add(mcpClient);
+                toolRegistry.registerMcpClient(mcpClient);
                 log.info("MCP 客户端注册成功,serverKey:{}",serverKey);
             } catch (RuntimeException e) {
                 log.error("MCP 客户端注册失败，serverKey: {}", serverKey, e);
@@ -68,6 +70,8 @@ public class McpConfig {
         });
         return McpToolProvider.builder()
                 .mcpClients(mcpClients)
+                .toolNameMapper((mcpClient, toolSpecification) ->
+                        mcpClient.key() + "__" + toolSpecification.name())
                 .build();
     }
 

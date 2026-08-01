@@ -58,8 +58,8 @@ mcp:
       url: https://flyai.open.fliggy.com/mcp
       auth-type: flyai
       api-key: ${FLYAI_API_KEY}
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false
 
     luckin:
       name: 瑞幸
@@ -68,8 +68,8 @@ mcp:
       url: https://gwmcp.lkcoffee.com/order/user/mcp
       auth-type: bearer
       api-key: ${LUCKIN_API_KEY}
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false
 
     meituan:
       name: 美团

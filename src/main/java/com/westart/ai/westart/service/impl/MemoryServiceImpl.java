@@ -150,7 +150,7 @@ public class MemoryServiceImpl implements MemoryService {
                 ? Collections.emptyList()
                 : analysisResult.messages();
         if (taggedMessages == null || taggedMessages.isEmpty()) {
-            log.info("第一阶段记忆分析完成，messageCount={}，candidateCount=0", messages.size());
+//            log.info("第一阶段记忆分析完成，messageCount={}，candidateCount=0", messages.size());
             return Collections.emptyList();
         }
 
@@ -170,14 +170,7 @@ public class MemoryServiceImpl implements MemoryService {
             candidateMessageMap.putIfAbsent(userMessage.messageId(), userMessage);
         }
 
-        List<ChatHistoryService.StreamMessage> candidates =
-                List.copyOf(candidateMessageMap.values());
-        log.info(
-                "第一阶段记忆分析完成，messageCount={}，candidateCount={}，invalidResultCount={}",
-                messages.size(),
-                candidates.size(),
-                invalidResultCount);
-        return candidates;
+        return List.copyOf(candidateMessageMap.values());
     }
 
     /**
@@ -287,7 +280,7 @@ public class MemoryServiceImpl implements MemoryService {
         String memoryId = resolveMemoryId(wechatUserId);
         List<UserMemory> memories = userMemoryMapper.selectByWechatUserIdAndMemoryKey(
                 memoryId, USER_PROFILE_MEMORY_KEY);
-        log.info("用户长期记忆查询完成，memoryCount={}", memories.size());
+//        log.info("用户长期记忆查询完成，memoryCount={}", memories.size());
         return List.copyOf(memories);
     }
 
