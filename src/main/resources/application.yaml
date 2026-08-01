@@ -75,7 +75,7 @@ mcp:
       name: 美团
       enabled: true
       transport: streamable-http
-      url: https://mcp.api-inference.modelscope.net/dc4bfc0e026045/mcp
+      url: https://mcp.api-inference.modelscope.net/889ac26108bd4a/mcp
       auth-type: bearer
       api-key: ${MODEL_SCOPE}
       log-requests: false
