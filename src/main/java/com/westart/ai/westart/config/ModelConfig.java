@@ -2,6 +2,7 @@ package com.westart.ai.westart.config;
 
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
+import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,7 +22,7 @@ public class ModelConfig {
      * @return
      */
     @Bean
-    public OpenAiChatModel textAssistantModel(){
+    public OpenAiChatModel weChatAssistantModel(){
         return OpenAiChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
@@ -84,6 +85,20 @@ public class ModelConfig {
                 .defaultRequestParameters(QwenChatRequestParameters.builder()
                         .asrOptions(asrOptions)
                         .build())
+                .build();
+    }
+
+    /**
+     * 配置向量模型
+     * @return
+     */
+    @Bean
+    public QwenEmbeddingModel embeddingModel(){
+        return QwenEmbeddingModel.builder()
+                .apiKey(System.getenv("QWEN_API_KEY"))
+                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
+                .modelName("text-embedding-v4")
+                .dimension(1024)
                 .build();
     }
 }

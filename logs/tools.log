@@ -1,74 +1,98 @@
-2026-07-31 14:58:52.614 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
-2026-07-31 14:58:52.618 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
-2026-07-31 14:58:52.619 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
-2026-07-31 14:58:52.619 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=1ms，resultLength=20 chars
-2026-07-31 14:58:52.621 WARN  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 搜索失败，耗时=7ms
-2026-07-31 15:04:34.786 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
-2026-07-31 15:04:34.787 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
-2026-07-31 15:04:34.788 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
-2026-07-31 15:04:34.789 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=2ms，resultLength=20 chars
-2026-07-31 15:04:34.789 WARN  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 搜索失败，耗时=3ms
-2026-07-31 15:07:03.703 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
-2026-07-31 15:13:02.354 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
-2026-07-31 15:13:02.355 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
-2026-07-31 15:13:02.355 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
-2026-07-31 15:13:04.890 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=2535
-2026-07-31 15:13:04.890 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=2535ms，resultLength=3400 chars
-2026-07-31 15:13:04.891 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始用大模型生成摘要
-2026-07-31 15:16:06.926 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 开始执行，toEmail=349598982@qq.com
-2026-07-31 15:16:06.926 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始搜索今日热点，dateStr=2026年07月31日
-2026-07-31 15:16:06.927 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - 开始执行 UAPI 联网搜索，query=今日热点
-2026-07-31 15:16:07.065 INFO  [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索成功，query=今日热点，resultCount=6，elapsedMs=138
-2026-07-31 15:16:07.065 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 联网搜索完成，耗时=139ms，resultLength=3400 chars
-2026-07-31 15:16:07.066 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始用大模型生成摘要
-2026-07-31 15:17:10.387 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 摘要生成完成，耗时=63321ms，summaryLength=1085 chars
-2026-07-31 15:17:10.388 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 开始发送邮件，toEmail=349598982@qq.com
-2026-07-31 15:17:11.716 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] 邮件发送完成，耗时=1328ms
-2026-07-31 15:17:11.716 INFO  [wechat-user-message-0] c.w.a.w.service.tool.DailyHotTool - [DailyHotTool] sendDailyHotToEmail 执行成功，总耗时=64790ms
-2026-07-30 17:13:26.120 ERROR [wechat-user-message-0] c.w.a.w.service.tool.WebSearchTool - UAPI 联网搜索 API Key 未配置，环境变量 UAPIS_API_KEY 未设置
-2026-07-31 16:44:25.589 ERROR [wechat-user-message-1] c.w.a.w.service.tool.LogisticsTool - 快递物流查询失败，trackingNumber=TEST，carrierCode=，phone=
-java.io.IOException: 模拟网络连接超时：connect timed out
-	at com.westart.ai.westart.service.tool.LogisticsTool.queryLogistics(LogisticsTool.java:33)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
-	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
-	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
-	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
-	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
-	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
-	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy133.reply(Unknown Source)
-	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:140)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
-	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
-2026-07-31 16:51:01.843 ERROR [wechat-user-message-1] c.w.a.w.service.tool.LogisticsTool - 快递物流查询失败，trackingNumber=TEST，carrierCode=null，phone=null
-java.io.IOException: 模拟网络连接超时：connect timed out
-	at com.westart.ai.westart.service.tool.LogisticsTool.queryLogistics(LogisticsTool.java:37)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.execute(DefaultToolExecutor.java:162)
-	at dev.langchain4j.service.tool.DefaultToolExecutor.executeWithContext(DefaultToolExecutor.java:109)
-	at dev.langchain4j.service.tool.ToolService.executeWithErrorHandling(ToolService.java:961)
-	at dev.langchain4j.service.tool.ToolService.internalExecuteTool(ToolService.java:939)
-	at dev.langchain4j.service.tool.ToolService.executeTool(ToolService.java:896)
-	at dev.langchain4j.service.tool.ToolService.executeSequentially(ToolService.java:887)
-	at dev.langchain4j.service.tool.ToolService.execute(ToolService.java:846)
-	at dev.langchain4j.service.tool.ToolService.executeInferenceAndToolsLoop(ToolService.java:575)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:345)
-	at dev.langchain4j.service.DefaultAiServices$1.invoke(DefaultAiServices.java:162)
-	at jdk.proxy2/jdk.proxy2.$Proxy133.reply(Unknown Source)
-	at com.westart.ai.westart.service.impl.UserMessageServiceImpl.processMessageBatch(UserMessageServiceImpl.java:140)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.delegateMessageBatch(UserThreadServiceImpl.java:187)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.processSessionMessages(UserThreadServiceImpl.java:145)
-	at com.westart.ai.westart.service.impl.UserThreadServiceImpl.lambda$submitSessionTask$1(UserThreadServiceImpl.java:116)
-	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)
-	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
-	at java.base/java.lang.VirtualThread.run(VirtualThread.java:329)
+2026-08-01 00:21:57.743 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 00:21:57.746 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 00:21:57.746 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 00:21:57.747 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 00:21:57.783 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 00:21:57.784 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 00:21:57.784 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 00:21:57.785 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 00:21:57.785 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 00:22:05.126 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 00:22:06.581 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 00:22:07.490 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 00:22:10.192 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 00:22:10.422 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 00:23:36.340 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 00:23:36.342 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 00:23:36.342 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 00:23:36.343 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 00:23:36.370 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 00:23:36.370 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 00:23:36.370 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 00:23:36.371 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 00:23:36.371 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 00:23:38.382 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 00:23:39.681 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 00:23:40.913 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 00:23:44.316 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 00:23:44.326 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 00:34:00.272 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 00:34:00.273 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 00:34:00.273 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 00:34:00.274 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 00:34:00.321 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 00:34:00.321 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 00:34:00.321 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 00:34:00.322 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 00:34:00.322 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 00:34:05.782 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 00:34:06.685 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 00:34:07.484 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 00:34:08.756 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 00:34:08.865 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 00:35:37.724 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 00:35:37.725 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 00:35:37.726 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 00:35:37.726 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 00:35:37.777 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 00:35:37.778 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 00:35:37.778 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 00:35:37.778 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 00:35:37.779 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 00:35:40.221 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 00:35:41.478 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 00:35:42.892 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 00:35:44.989 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 00:35:45.088 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 08:51:23.023 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 08:51:23.025 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 08:51:23.026 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 08:51:23.027 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 08:51:23.070 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 08:51:23.070 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 08:51:23.071 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 08:51:23.071 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 08:51:23.071 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 08:51:27.258 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 08:51:27.573 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 08:51:27.818 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 08:51:29.201 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 08:51:29.259 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 08:58:06.149 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 08:58:06.150 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 08:58:06.151 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 08:58:06.151 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 08:58:06.194 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 08:58:06.194 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 08:58:06.194 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 08:58:06.195 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 08:58:06.195 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 08:58:07.640 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 08:58:07.916 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 08:58:08.125 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 08:58:09.711 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 08:58:09.726 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr
+2026-08-01 09:04:55.743 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：dailyHotTool，工具数量：1
+2026-08-01 09:04:55.745 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：fileFormatTool，工具数量：8
+2026-08-01 09:04:55.745 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：foodOrderTool，工具数量：1
+2026-08-01 09:04:55.746 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：gaodeMapTool，工具数量：14
+2026-08-01 09:04:55.779 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：imageGenerateTool，工具数量：1
+2026-08-01 09:04:55.780 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：logisticsTool，工具数量：1
+2026-08-01 09:04:55.780 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：meituanTravelTool，工具数量：1
+2026-08-01 09:04:55.782 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：weatherTool，工具数量：1
+2026-08-01 09:04:55.782 INFO  [main] c.w.a.w.service.tool.ToolRegistry - 本地工具Bean注册成功，beanName：webSearchTool，工具数量：1
+2026-08-01 09:04:57.683 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：meituan
+2026-08-01 09:04:58.293 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：flyai
+2026-08-01 09:04:58.595 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：luckin
+2026-08-01 09:05:00.123 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：slideforge
+2026-08-01 09:05:00.133 INFO  [main] c.w.a.w.service.tool.ToolRegistry - MCP客户端注册成功，clientKey：hsr

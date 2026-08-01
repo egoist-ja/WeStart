@@ -15,7 +15,7 @@ import java.util.List;
  */
 @AiService(
         wiringMode = AiServiceWiringMode.EXPLICIT,
-        chatModel = "textAssistantModel"
+        chatModel = "weChatAssistantModel"
 )
 public interface MemoryAssistant {
 
