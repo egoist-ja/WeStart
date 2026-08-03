@@ -1,0 +1,8 @@
+{
+  "name": "westart-wechat-bot",
+  "description": "WeStart 微信智能聊天助手 - 美团酒旅 & 周边餐厅搜索",
+  "private": true,
+  "dependencies": {
+    "@meituan-travel/ht-ai": "latest"
+  }
+}
