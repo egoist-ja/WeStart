@@ -7,13 +7,13 @@ import com.westart.ai.westart.service.tool.FoodOrderTool;
 import com.westart.ai.westart.service.tool.GaodeMapTool;
 import com.westart.ai.westart.service.tool.ImageGenerateTool;
 import com.westart.ai.westart.service.tool.LogisticsTool;
+import com.westart.ai.westart.service.tool.ToolSearchTool;
 import com.westart.ai.westart.service.tool.WeatherTool;
 import com.westart.ai.westart.service.tool.WebSearchTool;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.tool.search.ToolSearchStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -41,7 +41,7 @@ public class AiServiceConfig {
     public WeChatAssistant weChatAssistant(
             ChatModel weChatAssistantModel,
             ChatMemoryProvider redisChatMemoryProvider,
-            ToolSearchStrategy toolSearchTool,
+            ToolSearchTool toolSearchTool,
             McpToolProvider mcpToolProvider,
             WeatherTool weatherTool,
             LogisticsTool logisticsTool,
@@ -50,8 +50,7 @@ public class AiServiceConfig {
             ImageGenerateTool imageGenerateTool,
             DailyHotTool dailyHotTool,
             FileFormatTool fileFormatTool,
-            FoodOrderTool foodOrderTool
-            ) {
+            FoodOrderTool foodOrderTool) {
         return AiServices.builder(WeChatAssistant.class)
                 .chatModel(weChatAssistantModel)
                 .chatMemoryProvider(redisChatMemoryProvider)
@@ -66,6 +65,7 @@ public class AiServiceConfig {
                         foodOrderTool)
                 .toolProvider(mcpToolProvider)
                 .toolSearchStrategy(toolSearchTool)
+                .chatRequestTransformer(toolSearchTool::applyToolPolicy)
                 .build();
     }
 }

@@ -41,6 +41,7 @@ public class WeatherTool{
     @Tool(value="当用户需要查询某个城市的实时天气时，调用该工具，province表示省份，cityName为城市名，"+
             "如果用户缺少了省份或城市名，则不调用该方法，并提示用户明确具体的省份和城市")
     public String queryWeatherInfo(String province,String cityName) {
+        log.info("调用天气查询工具");
         try {
             String locationId = queryCityId(province,cityName);
             String jwt = GenerateWeatherJWT.generateJWT();
