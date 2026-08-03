@@ -67,9 +67,23 @@ public class WeChatLoginServiceImpl implements WeChatLoginService {
      */
     @Override
     public LoginStatus getLoginStatus(String sessionId) {
-        return sessionRegistry.getRequired(sessionId)
-                .client()
-                .getLoginStatus();
+        if (StringUtils.isBlank(sessionId)) {
+            throw new IllegalArgumentException("sessionId不能为空");
+        }
+        return sessionRegistry.find(sessionId)
+                .map(session -> session.client().getLoginStatus())
+                .orElseGet(this::expiredLoginStatus);
+    }
+
+    /**
+     * 创建登录会话已失效的状态结果。
+     *
+     * @return 已失效的登录状态
+     */
+    private LoginStatus expiredLoginStatus() {
+        LoginStatus loginStatus = new LoginStatus();
+        loginStatus.toExpired();
+        return loginStatus;
     }
 
     /**

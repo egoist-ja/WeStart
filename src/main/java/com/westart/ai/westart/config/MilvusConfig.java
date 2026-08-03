@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 @Configuration
@@ -23,6 +24,7 @@ public class MilvusConfig {
 
     private static final String DATABASE_NAME = "westart";
     private static final String TOOL_COLLECTION_NAME = "toolCollection";
+    private static final String USER_TOPIC_MEMORY_COLLECTION_NAME = "user_topic_memory";
 
     @Bean
     public MilvusClientV2 milvusClient() {
@@ -49,15 +51,39 @@ public class MilvusConfig {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("切换Milvus数据库时线程被中断", e);
         }
+        createCollectionIfAbsent(
+                milvusClient, TOOL_COLLECTION_NAME, this::createToolCollection);
+        createCollectionIfAbsent(
+                milvusClient,
+                USER_TOPIC_MEMORY_COLLECTION_NAME,
+                this::createChatMessageCollection);
+        log.info("milvus初始化完成");
+    }
+
+    /**
+     * 当指定Collection不存在时执行初始化，已存在时直接跳过。
+     *
+     * @param milvusClient Milvus客户端
+     * @param collectionName Collection名称
+     * @param collectionCreator Collection创建方法
+     */
+    private void createCollectionIfAbsent(
+            MilvusClientV2 milvusClient,
+            String collectionName,
+            Consumer<MilvusClientV2> collectionCreator) {
         boolean collectionExists = milvusClient.hasCollection(
                 HasCollectionReq.builder()
                         .databaseName(DATABASE_NAME)
-                        .collectionName(TOOL_COLLECTION_NAME)
+                        .collectionName(collectionName)
                         .build());
-        if (!collectionExists) {
-            createCollection(milvusClient);
+        if (collectionExists) {
+            log.info("Milvus Collection已存在，跳过初始化，collectionName={}",
+                    collectionName);
+            return;
         }
-        log.info("milvus初始化完成");
+
+        collectionCreator.accept(milvusClient);
+        log.info("Milvus Collection初始化完成，collectionName={}", collectionName);
     }
 
     private void createDatabase(MilvusClientV2 milvusClient){
@@ -66,7 +92,11 @@ public class MilvusConfig {
                 .build());
     }
 
-    private void createCollection(MilvusClientV2 milvusClient){
+    /**
+     * 创建工具搜索表
+     * @param milvusClient
+     */
+    private void createToolCollection(MilvusClientV2 milvusClient){
         CreateCollectionReq.CollectionSchema schema = MilvusClientV2.CreateSchema();
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
@@ -133,6 +163,88 @@ public class MilvusConfig {
 
         milvusClient.createCollection(CreateCollectionReq.builder()
                 .collectionName(TOOL_COLLECTION_NAME)
+                .collectionSchema(schema)
+                .indexParams(indexes)
+                .build());
+    }
+
+    /**
+     * 创建用户最近聊天主题记忆Collection。
+     *
+     * @param milvusClient Milvus客户端
+     */
+    private void createChatMessageCollection(MilvusClientV2 milvusClient) {
+        CreateCollectionReq.CollectionSchema schema = MilvusClientV2.CreateSchema();
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.VarChar)
+                .fieldName("memory_id")
+                .isPrimaryKey(true)
+                .autoID(false)
+                .maxLength(64)
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.VarChar)
+                .fieldName("wechat_user_id")
+                .maxLength(128)
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.VarChar)
+                .fieldName("topic")
+                .maxLength(256)
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.VarChar)
+                .fieldName("searchable_content")
+                .maxLength(4096)
+                .enableAnalyzer(true)
+                .enableMatch(true)
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.Timestamptz)
+                .fieldName("occurred_at")
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.Timestamptz)
+                .fieldName("expires_at")
+                .isNullable(true)
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.FloatVector)
+                .dimension(1024)
+                .fieldName("searchable_content_dense_vector")
+                .build());
+        schema.addField(AddFieldReq.builder()
+                .dataType(DataType.SparseFloatVector)
+                .fieldName("searchable_content_sparse_vector")
+                .build());
+        schema.addFunction(CreateCollectionReq.Function.builder()
+                .functionType(FunctionType.BM25)
+                .name("topic_bm25")
+                .inputFieldNames(Collections.singletonList("searchable_content"))
+                .outputFieldNames(Collections.singletonList("sparse_vector"))
+                .build());
+
+        List<IndexParam> indexes = new ArrayList<>();
+        indexes.add(IndexParam.builder()
+                .fieldName("dense_vector")
+                .indexName("dense_vector_index")
+                .indexType(IndexParam.IndexType.AUTOINDEX)
+                .metricType(IndexParam.MetricType.COSINE)
+                .build());
+        indexes.add(IndexParam.builder()
+                .fieldName("sparse_vector")
+                .indexName("sparse_vector_index")
+                .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX)
+                .metricType(IndexParam.MetricType.BM25)
+                .build());
+        indexes.add(IndexParam.builder()
+                .fieldName("wechat_user_id")
+                .indexName("wechat_user_id_index")
+                .indexType(IndexParam.IndexType.INVERTED)
+                .build());
+
+        milvusClient.createCollection(CreateCollectionReq.builder()
+                .collectionName(USER_TOPIC_MEMORY_COLLECTION_NAME)
                 .collectionSchema(schema)
                 .indexParams(indexes)
                 .build());

@@ -18,6 +18,8 @@ public class McpProperties {
 
         private String name;
 
+        private String description;
+
         private boolean enabled = true;
 
         private String transport;

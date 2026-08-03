@@ -493,8 +493,8 @@
             <!-- 二维码卡片 -->
             <div class="qr-card">
                 <img id="qrCode" class="qr-code"
-                     src="/wechat/login/qrcode" alt="微信登录二维码">
-                <span class="qr-expire-hint">二维码过期后请刷新页面</span>
+                     alt="微信登录二维码">
+                <span class="qr-expire-hint">二维码使用后将自动刷新</span>
                 <div class="service-overlay">服务未启动</div>
                 <p id="errorMessage" class="error-message">二维码加载失败，请确认服务正常运行后刷新页面。</p>
             </div>
@@ -505,10 +505,81 @@
 <script>
     const qrCode = document.getElementById('qrCode');
     const errorMessage = document.getElementById('errorMessage');
+    const sessionIdHeader = 'X-WeChat-Session-Id';
+    const statusPollingInterval = 2000;
+    let qrCodeObjectUrl;
+    let statusTimer;
+    let loadingQrCode = false;
+
     qrCode.addEventListener('error', () => {
         qrCode.style.display = 'none';
         errorMessage.style.display = 'flex';
     });
+
+    qrCode.addEventListener('load', () => {
+        qrCode.style.display = 'block';
+        errorMessage.style.display = 'none';
+    });
+
+    async function loadQrCode() {
+        if (loadingQrCode) return;
+        loadingQrCode = true;
+        clearTimeout(statusTimer);
+
+        try {
+            const response = await fetch('/wechat/login/qrcode', {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const sessionId = response.headers.get(sessionIdHeader);
+            if (!sessionId) throw new Error('二维码响应缺少会话标识');
+
+            const imageBlob = await response.blob();
+            const nextObjectUrl = URL.createObjectURL(imageBlob);
+            if (qrCodeObjectUrl) URL.revokeObjectURL(qrCodeObjectUrl);
+            qrCodeObjectUrl = nextObjectUrl;
+            qrCode.src = nextObjectUrl;
+            scheduleStatusPolling(sessionId);
+        } catch (error) {
+            console.error('微信登录二维码加载失败', error);
+            qrCode.style.display = 'none';
+            errorMessage.style.display = 'flex';
+        } finally {
+            loadingQrCode = false;
+        }
+    }
+
+    function scheduleStatusPolling(sessionId) {
+        statusTimer = setTimeout(() => pollLoginStatus(sessionId), statusPollingInterval);
+    }
+
+    async function pollLoginStatus(sessionId) {
+        try {
+            const response = await fetch(
+                `/wechat/login/status?sessionId=${encodeURIComponent(sessionId)}`,
+                {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const loginStatus = await response.json();
+            if (loginStatus.status === 'LOGGED_IN') {
+                await loadQrCode();
+                return;
+            }
+            if (loginStatus.status === 'EXPIRED' || loginStatus.status === 'ERROR') {
+                await loadQrCode();
+                return;
+            }
+        } catch (error) {
+            console.error('微信登录状态查询失败', error);
+        }
+        scheduleStatusPolling(sessionId);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        clearTimeout(statusTimer);
+        if (qrCodeObjectUrl) URL.revokeObjectURL(qrCodeObjectUrl);
+    });
+
+    loadQrCode();
 
     /* —————— 自定义光标跟随（仅桌面端） —————— */
     const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
