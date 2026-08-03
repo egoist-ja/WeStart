@@ -48,7 +48,6 @@ public class ToolConfig {
 
             @Override
             public void onRequest(EmbeddingStoreRequestContext<?> requestContext) {
-                log.info("111");
                 if (requestContext instanceof EmbeddingStoreRequestContext.Search<?> searchContext) {
                     EmbeddingSearchRequest request = searchContext.searchRequest();
                     log.info(

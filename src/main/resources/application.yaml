@@ -71,15 +71,17 @@ mcp:
       log-requests: false
       log-responses: false
 
-    meituan:
-      name: 美团
-      enabled: true
-      transport: streamable-http
-      url: https://mcp.api-inference.modelscope.net/889ac26108bd4a/mcp
-      auth-type: bearer
-      api-key: ${MODEL_SCOPE}
-      log-requests: false
-      log-responses: false
+#    meituan:
+#      name: 美团
+#      description: >-
+#        美团旅行助手，一站式查询酒店、机票、火车票、景点门票并规划旅行行程，覆盖全国300多个城市。支持按出发地、目的地、预算、景点和出行时间理解自然语言需求，返回美团旅行的实时价格与预订链接。适用于酒店推荐、航班和铁路出行查询、门票价格查询、旅游攻略及亲子旅行推荐。
+#      enabled: true
+#      transport: streamable-http
+#      url: https://mcp.api-inference.modelscope.net/6c8dd283c5f347/mcp
+#      auth-type: bearer
+#      api-key: ${MODEL_SCOPE}
+#      log-requests: false
+#      log-responses: false
     hsr:
       name: 12306
       enabled: true
@@ -108,3 +110,13 @@ mcp:
       log-requests: false
       log-responses: false
       api-key: ${SLIDEFORGE_API_KEY}
+
+    rollinggo:
+      name: RollingGo
+      enabled: true
+      transport: streamable-http
+      url: https://mcp.rollinggo.cn/mcp
+      auth-type: bearer
+      log-requests: false
+      log-responses: false
+      api-key: mcp_f8c0591863f74baeba1b3fe4a78d77fd

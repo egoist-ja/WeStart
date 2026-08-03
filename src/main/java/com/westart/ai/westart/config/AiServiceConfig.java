@@ -13,6 +13,7 @@ import com.westart.ai.westart.service.tool.WebSearchTool;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.observability.api.listener.ToolExecutedEventListener;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,7 +51,7 @@ public class AiServiceConfig {
             ImageGenerateTool imageGenerateTool,
             DailyHotTool dailyHotTool,
             FileFormatTool fileFormatTool,
-            FoodOrderTool foodOrderTool) {
+            FoodOrderTool foodOrderTool, ToolExecutedEventListener toolExecutedEventListener) {
         return AiServices.builder(WeChatAssistant.class)
                 .chatModel(weChatAssistantModel)
                 .chatMemoryProvider(redisChatMemoryProvider)
@@ -66,6 +67,8 @@ public class AiServiceConfig {
                 .toolProvider(mcpToolProvider)
                 .toolSearchStrategy(toolSearchTool)
                 .chatRequestTransformer(toolSearchTool::applyToolPolicy)
+                .maxToolCallingRoundTrips(10)
+                .registerListener(toolExecutedEventListener)
                 .build();
     }
 }
