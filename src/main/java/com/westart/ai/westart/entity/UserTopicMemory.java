@@ -25,7 +25,7 @@ public record UserTopicMemory(
         @SerializedName("searchable_content") String searchableContent,
         @SerializedName("occurred_at") String occurredAt,
         @SerializedName("expires_at") String expiresAt,
-        @SerializedName("dense_vector") float[] denseVector) {
+        @SerializedName("searchable_content_dense_vector") float[] denseVector) {
 
     public UserTopicMemory {
         Objects.requireNonNull(memoryId, "主题记忆ID不能为null");

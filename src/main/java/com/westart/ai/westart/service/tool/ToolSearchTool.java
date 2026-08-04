@@ -7,13 +7,8 @@ import com.westart.ai.westart.entity.ToolEntity;
 import com.westart.ai.westart.entity.ToolType;
 import com.westart.ai.westart.service.ToolSearchService;
 import dev.langchain4j.agent.tool.ToolSpecification;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.exception.ToolExecutionException;
 import dev.langchain4j.invocation.InvocationContext;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.request.ToolChoice;
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
 import dev.langchain4j.service.tool.search.ToolSearchRequest;
 import dev.langchain4j.service.tool.search.ToolSearchResult;
@@ -22,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +33,6 @@ public class ToolSearchTool implements ToolSearchStrategy {
     private static final String QUERY_ARGUMENT_NAME = "query";
     private static final String MCP_TOOL_NAME_SEPARATOR = "__";
     private static final String NO_MATCHING_TOOL_MESSAGE = "没有找到符合需求的工具";
-    private static final String FOUND_TOOLS_ATTRIBUTE = "found_tools";
 
     private final ToolSearchService toolSearchService;
 
@@ -53,126 +46,14 @@ public class ToolSearchTool implements ToolSearchStrategy {
     public List<ToolSpecification> getToolSearchTools(InvocationContext invocationContext) {
         return List.of(ToolSpecification.builder()
                 .name(SEARCH_TOOL_NAME)
-                .description("动态工具发现入口。每次收到新的用户请求时必须先调用本工具。找到可用工具时继续调用对应工具；没有找到时再使用模型自身知识回答。在本工具实际返回失败前，不得声称工具不可用")
+                .description("动态工具发现入口。每次收到新的用户请求时，先核对当前可见工具是否明确支持所需的业务对象、操作和结果；缺少任何必要能力时，调用本工具搜索缺失能力。领域相关不代表能力匹配，例如地点搜索工具不能查询门店菜单")
                 .parameters(JsonObjectSchema.builder()
                         .addStringProperty(
                                 QUERY_ARGUMENT_NAME,
-                                "结合当前消息和对话上下文改写出的完整能力需求，包含目标、对象以及已知的关键限制")
+                                "按照“业务对象或服务领域 + 操作能力 + 预期结果”描述缺失的工具能力。可以包含餐饮、酒店、饮品等用于区分工具的业务语义，不得包含具体地址、城市、日期、预算、第几家等执行值。例如：查询指定麦当劳门店的菜单商品、规格、价格和可售状态")
                         .required(QUERY_ARGUMENT_NAME)
                         .build())
                 .build());
-    }
-
-    /**
-     * 根据当前对话阶段隔离可见工具并设置工具选择策略。
-     *
-     * @param request 模型请求
-     * @return 应用工具隔离和选择策略后的模型请求
-     * @throws IllegalArgumentException 模型请求为空时抛出
-     */
-    public ChatRequest applyToolPolicy(ChatRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("模型请求不能为空");
-        }
-        if (request.messages().isEmpty()) {
-            return request;
-        }
-
-        ToolExecutionResultMessage searchResult =
-                findCurrentSearchResult(request.messages());
-        return searchResult == null
-                ? retainToolSearch(request)
-                : retainCurrentTools(request, searchResult);
-    }
-
-    /**
-     * 新用户请求只保留并强制调用工具搜索工具。
-     *
-     * @param request 模型请求
-     * @return 仅包含工具搜索工具的模型请求；未注册时返回原请求
-     */
-    private ChatRequest retainToolSearch(ChatRequest request) {
-        return request.toolSpecifications().stream()
-                .filter(tool -> SEARCH_TOOL_NAME.equals(tool.name()))
-                .findFirst()
-                .map(tool -> request.toBuilder()
-                        .toolSpecifications(List.of(tool))
-                        .toolChoice(ToolChoice.REQUIRED)
-                        .build())
-                .orElse(request);
-    }
-
-    /**
-     * 只保留当前轮搜索到的业务工具和工具搜索工具。
-     *
-     * @param request 模型请求
-     * @param resultMessage 工具搜索结果消息
-     * @return 当前轮可见工具经过隔离后的模型请求
-     */
-    private ChatRequest retainCurrentTools(
-            ChatRequest request,
-            ToolExecutionResultMessage resultMessage) {
-        Set<String> foundToolNames = getFoundToolNames(resultMessage);
-        if (foundToolNames.isEmpty()) {
-            return request.toBuilder()
-                    .toolSpecifications(List.of())
-                    .toolChoice(ToolChoice.NONE)
-                    .build();
-        }
-
-        List<ToolSpecification> currentTools = request.toolSpecifications().stream()
-                .filter(tool -> foundToolNames.contains(tool.name()))
-                .toList();
-        boolean searchJustCompleted = request.messages().getLast() == resultMessage;
-        return request.toBuilder()
-                .toolSpecifications(currentTools)
-                .toolChoice(searchJustCompleted
-                        ? ToolChoice.REQUIRED
-                        : ToolChoice.AUTO)
-                .build();
-    }
-
-    /**
-     * 查找最近一条用户消息之后产生的工具搜索结果。
-     *
-     * @param messages 当前模型请求消息
-     * @return 当前轮工具搜索结果；尚未搜索时返回null
-     */
-    private ToolExecutionResultMessage findCurrentSearchResult(
-            List<ChatMessage> messages) {
-        for (int index = messages.size() - 1; index >= 0; index--) {
-            ChatMessage message = messages.get(index);
-            if (message instanceof UserMessage) {
-                return null;
-            }
-            if (message instanceof ToolExecutionResultMessage resultMessage
-                    && SEARCH_TOOL_NAME.equals(resultMessage.toolName())) {
-                return resultMessage;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 从工具搜索结果消息中读取框架记录的已发现工具名称。
-     *
-     * @param resultMessage 工具搜索结果消息
-     * @return 已发现的工具名称集合
-     */
-    private Set<String> getFoundToolNames(
-            ToolExecutionResultMessage resultMessage) {
-        Object foundTools = resultMessage.attributes().get(FOUND_TOOLS_ATTRIBUTE);
-        if (!(foundTools instanceof Collection<?> toolNames)) {
-            return Set.of();
-        }
-
-        Set<String> result = new LinkedHashSet<>();
-        for (Object toolName : toolNames) {
-            if (toolName instanceof String name && !name.isBlank()) {
-                result.add(name);
-            }
-        }
-        return result;
     }
 
     /**
@@ -191,6 +72,8 @@ public class ToolSearchTool implements ToolSearchStrategy {
 
         String query = extractQuery(
                 toolSearchRequest.toolExecutionRequest().arguments());
+        log.info("AI调用工具搜索，工具名称={}，查询语句={}",
+                SEARCH_TOOL_NAME, query);
         List<ToolEntity> matchedTools;
         try {
             matchedTools = toolSearchService.searchTools(query);
@@ -261,10 +144,10 @@ public class ToolSearchTool implements ToolSearchStrategy {
             return List.of();
         }
 
-        Set<String> availableToolNames = new LinkedHashSet<>();
+        Set<String> searchableToolNames = new LinkedHashSet<>();
         for (ToolSpecification searchableTool : searchableTools) {
             if (searchableTool != null && searchableTool.name() != null) {
-                availableToolNames.add(searchableTool.name());
+                searchableToolNames.add(searchableTool.name());
             }
         }
 
@@ -274,16 +157,16 @@ public class ToolSearchTool implements ToolSearchStrategy {
                 continue;
             }
             if (matchedTool.type() == ToolType.LOCAL) {
-                if (availableToolNames.contains(matchedTool.name())) {
+                if (searchableToolNames.contains(matchedTool.name())) {
                     foundToolNames.add(matchedTool.name());
                 }
                 continue;
             }
 
-            String mcpToolNamePrefix = matchedTool.name()
+            String toolNamePrefix = matchedTool.name()
                     + MCP_TOOL_NAME_SEPARATOR;
-            availableToolNames.stream()
-                    .filter(name -> name.startsWith(mcpToolNamePrefix))
+            searchableToolNames.stream()
+                    .filter(name -> name.startsWith(toolNamePrefix))
                     .forEach(foundToolNames::add);
         }
         return List.copyOf(foundToolNames);

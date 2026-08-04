@@ -22,11 +22,10 @@ public class LogisticsTool {
 
     private final OkHttpClient okHttpClient;
 
-    @Tool(value = "当用户需要查询快递物流信息时调用该工具。" +
-        "trackingNumber表示快递单号（必填，通常是一串10-20位的数字或字母数字组合），" +
-        "carrierCode表示快递公司编码（选填，不填则系统自动识别快递公司），" +
-        "phone表示收件人手机尾号后4位（选填，部分快递公司如顺丰需要验证手机尾号才能查询），" +
-        "如果用户没有提供快递单号，则不调用该方法，并提示用户提供快递单号")
+    @Tool(value = "查询快递包裹的承运公司、当前物流状态和运输轨迹。"
+            + "trackingNumber为快递单号，必填；carrierCode为快递公司编码，选填，"
+            + "不填时自动识别；phone为收件人手机尾号后4位，部分承运公司查询时需要。"
+            + "用户未提供快递单号时不要调用。")
     public String queryLogistics(
             @P("快递单号，必填，通常是一串10-20位的数字或字母数字组合") String trackingNumber,
             @P("快递公司编码，选填，常见的有SF(顺丰)、YTO(圆通)、ZTO(中通)、YD(韵达)、STO(申通)等，不填则系统自动识别") String carrierCode,

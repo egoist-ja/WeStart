@@ -56,7 +56,7 @@ public class ToolSearchServiceImpl implements ToolSearchService {
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .query(query)
                 .queryEmbedding(embedding)
-                .maxResults(5)
+                .maxResults(3)
                 .minScore(0.0)
                 .build();
 
@@ -161,10 +161,19 @@ public class ToolSearchServiceImpl implements ToolSearchService {
             serverName = clientKey;
         }
 
+        String configuredDescription = serverConfig == null
+                ? null
+                : serverConfig.getDescription();
         String instructions = mcpClient.instructions();
-        String description = instructions == null || instructions.isBlank()
-                ? serverName + " MCP服务"
-                : serverName + "：" + instructions;
+        String description;
+        if (configuredDescription != null
+                && !configuredDescription.isBlank()) {
+            description = configuredDescription;
+        } else if (instructions != null && !instructions.isBlank()) {
+            description = serverName + "：" + instructions;
+        } else {
+            description = serverName + " MCP服务";
+        }
         return new ToolEntity(
                 stableId(MCP_ID_PREFIX + clientKey),
                 ToolType.MCP,

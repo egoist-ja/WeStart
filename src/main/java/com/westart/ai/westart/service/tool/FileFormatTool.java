@@ -83,8 +83,9 @@ public class FileFormatTool {
 
     /** 工具方法。 */
 
-    @Tool(value = "将用户之前发送的文件转换为Word文档(.docx)。" +
-            "fileKey的值来自之前用户消息中的[文件ID: xxx]，直接提取xxx传入即可。")
+    @Tool(value = "将用户在当前会话中已经上传的文件转换为Word文档并直接发送给用户。"
+            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
+            + "fileKey为[文件ID: xxx]中的xxx，必填。")
     public String convertToDocx(@ToolMemoryId String userId,
                                 @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
         long startTime = System.currentTimeMillis();
@@ -123,8 +124,9 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "将用户之前发送的文件转换为PDF。" +
-            "fileKey的值来自之前用户消息中的[文件ID: xxx]，直接提取xxx传入即可。")
+    @Tool(value = "将用户在当前会话中已经上传的文档转换为PDF并直接发送给用户。"
+            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
+            + "fileKey为[文件ID: xxx]中的xxx，必填。")
     public String convertToPdf(@ToolMemoryId String userId,
                                @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
         long startTime = System.currentTimeMillis();
@@ -176,8 +178,9 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "提取用户之前发送文件的纯文本内容。" +
-            "fileKey的值来自之前用户消息中的[文件ID: xxx]，直接提取xxx传入即可。")
+    @Tool(value = "提取用户在当前会话中已经上传文件的纯文本内容，并以TXT文件直接发送给用户。"
+            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
+            + "fileKey为[文件ID: xxx]中的xxx，必填。")
     public String extractText(@ToolMemoryId String userId,
                               @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
         long startTime = System.currentTimeMillis();
@@ -215,8 +218,9 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "当用户需要从Word文档(.docx)、PDF、Markdown或TXT文件中提取纯文本内容时，调用此工具。" +
-            "参数mimeType为文件类型，base64Data为文件的Base64编码数据。返回提取的纯文本内容。")
+    @Tool(value = "从Base64编码的Word、PDF、Markdown或TXT文档中提取纯文本并直接返回文本内容。"
+            + "本工具只处理调用方已经持有Base64数据的文档，不处理带有[文件ID]的会话上传文件。"
+            + "base64Data和mimeType均为必填参数。")
     public String extractDocumentText(String base64Data, String mimeType) {
         long startTime = System.currentTimeMillis();
         log.info("[FileFormatTool] extractDocumentText 开始执行，mimeType={}", mimeType);
@@ -247,9 +251,10 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "当用户需要将Markdown文本内容直接转换为PDF文件时，调用此工具。" +
-            "markdownText为Markdown格式的文本，theme为可选主题(github/minimal/light/dark，默认github)，" +
-            "paperSize为可选纸张大小(A4/Letter，默认A4)。返回Base64编码的PDF文件数据。")
+    @Tool(value = "将Markdown文本渲染为PDF文件，并返回PDF的Base64编码数据。"
+            + "本工具处理直接提供的Markdown文本，不处理用户已经上传的文件。"
+            + "markdownText为必填；theme为github、minimal、light或dark，选填；"
+            + "paperSize为A4或Letter，选填。")
     public String convertMarkdownToPdf(String markdownText, String theme, String paperSize) {
         long startTime = System.currentTimeMillis();
         log.info("[FileFormatTool] convertMarkdownToPdf 开始执行，theme={}, paperSize={}", theme, paperSize);
@@ -274,8 +279,9 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "当用户需要将Markdown文本内容直接转换为Word文档(.docx)时，调用此工具。" +
-            "markdownText为Markdown格式的文本。返回Base64编码的docx文件数据。")
+    @Tool(value = "将Markdown文本转换为Word文档，并返回DOCX文件的Base64编码数据。"
+            + "本工具处理直接提供的Markdown文本，不处理用户已经上传的文件。"
+            + "markdownText为必填参数。")
     public String convertMarkdownToDocx(String markdownText) {
         long startTime = System.currentTimeMillis();
         log.info("[FileFormatTool] convertMarkdownToDocx 开始执行");
@@ -294,9 +300,9 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "当用户需要将Markdown文本内容转换为HTML时，调用此工具。" +
-            "markdownText为Markdown格式的文本，completePage表示是否生成完整HTML页面(含DOCTYPE和样式)，" +
-            "false则只返回HTML片段。返回HTML内容。")
+    @Tool(value = "将Markdown文本转换为HTML内容，可生成完整HTML页面或仅生成HTML片段。"
+            + "markdownText为必填；completePage为true时返回包含DOCTYPE和样式的完整页面，"
+            + "为false时只返回HTML片段。")
     public String convertMarkdownToHtml(String markdownText, boolean completePage) {
         long startTime = System.currentTimeMillis();
         log.info("[FileFormatTool] convertMarkdownToHtml 开始执行，completePage={}", completePage);
@@ -318,7 +324,8 @@ public class FileFormatTool {
         }
     }
 
-    @Tool(value = "当用户需要查询系统支持的文件格式转换类型时，调用此工具。返回所有支持的格式转换说明。")
+    @Tool("查询当前系统支持的文档输入格式、输出格式和文件转换组合。"
+            + "本工具只返回能力说明，不执行文件转换。")
     public String getSupportedConversions() {
         return """
                 支持的文件格式转换：
