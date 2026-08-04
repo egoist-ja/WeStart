@@ -27,8 +27,14 @@ spring:
           timeout: 10000
           writetimeout: 10000
 
+logging:
+  level:
+    com.github.wechat.ilink.sdk.ILinkClient: WARN
+
 
 westart:
+  wechat:
+    login-state-encryption-key: ${WECHAT_LOGIN_STATE_ENCRYPTION_KEY:}
   memory:
     redis-key-prefix: "westart:chat-memory:"
     chat-ttl: 3h
@@ -53,6 +59,8 @@ mcp:
   servers:
     flyai:
       name: 飞猪
+      description: >-
+        提供旅行服务查询能力，包括机票、酒店、景点、目的地和旅行方案的搜索、比较与推荐，可返回实时价格、可订选项和预订链接。适用于查询航班、住宿、景点信息以及规划综合旅行行程。
       enabled: true
       transport: streamable-http
       url: https://flyai.open.fliggy.com/mcp
@@ -63,6 +71,8 @@ mcp:
 
     luckin:
       name: 瑞幸
+      description: >-
+        提供瑞幸咖啡门店定位、饮品和商品查询、规格与加料选择、购物车及订单创建能力。适用于查找附近瑞幸门店、选择咖啡饮品并完成瑞幸点单流程。
       enabled: true
       transport: streamable-http
       url: https://gwmcp.lkcoffee.com/order/user/mcp
@@ -84,6 +94,8 @@ mcp:
 #      log-responses: false
     hsr:
       name: 12306
+      description: >-
+        提供中国铁路出行查询能力，包括火车站信息、列车时刻、车次经停站、票价、余票和换乘方案查询。适用于规划国内火车和高铁行程，不处理飞机或酒店查询。
       enabled: true
       transport: streamable-http
       url: http://localhost:8000/mcp
@@ -93,6 +105,8 @@ mcp:
       log-responses: false
     mc:
       name: 麦当劳
+      description: >-
+        提供麦当劳门店定位、菜单和商品查询、规格选择、购物车及订单创建能力。适用于查找附近麦当劳门店、选择汉堡套餐、饮品和其他商品并完成麦当劳点餐流程。
       enabled: true
       transport: streamable-http
       url: https://mcp.mcd.cn
@@ -103,6 +117,8 @@ mcp:
 
     slideforge:
       name: SlideForge
+      description: >-
+        提供PowerPoint演示文稿制作能力，可根据文字或结构化内容创建单页幻灯片和完整演示文稿，查询版式与主题、上传素材、翻译演示文稿并返回可编辑的PPTX文件和预览图。
       enabled: true
       transport: streamable-http
       url: https://api.slideforge.dev/mcp/
@@ -113,10 +129,12 @@ mcp:
 
     rollinggo:
       name: RollingGo
+      description: >-
+        提供全球酒店查询能力，包括按目的地和日期搜索酒店、按价格与设施筛选、查询酒店详情、房型、实时价格和可订状态。仅用于酒店住宿，不处理机票、火车票或景点查询。
       enabled: true
       transport: streamable-http
       url: https://mcp.rollinggo.cn/mcp
       auth-type: bearer
       log-requests: false
       log-responses: false
-      api-key: mcp_f8c0591863f74baeba1b3fe4a78d77fd
+      api-key: ${ROLLING_GO}

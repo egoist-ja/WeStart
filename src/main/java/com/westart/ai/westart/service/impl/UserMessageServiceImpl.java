@@ -38,6 +38,8 @@ import java.util.*;
 public class UserMessageServiceImpl implements UserMessageService {
 
     private static final String DEFAULT_IMAGE_PROMPT = "请分析用户发送的图片并给出有帮助的回答。";
+    private static final String TOOL_SEARCH_REMINDER =
+            "当当前可见工具无法回答用户的问题时，调用tool_search_tool搜索对应的工具。";
     private static final String EMPTY_VOICE_TRANSCRIPTION_REPLY =
             "语音消息未包含可用的转写内容呢，再试一遍吧？";
     private static final String MODEL_FAILURE_REPLY = "消息处理失败，请稍后重试。";
@@ -283,20 +285,19 @@ public class UserMessageServiceImpl implements UserMessageService {
     }
 
     /**
-     * 为无文本的多模态消息补充默认提示词。
+     * 补充多模态默认提示词和工具搜索提醒。
      *
      * @param contents 当前语义片段内容
      * @return 可直接交给模型的不可变内容列表
      */
     private List<Content> prepareModelContents(List<Content> contents) {
         boolean containsText = contents.stream().anyMatch(TextContent.class::isInstance);
-        if (containsText) {
-            return List.copyOf(contents);
+        List<Content> modelContents = new ArrayList<>(contents.size() + 2);
+        if (!containsText) {
+            modelContents.add(TextContent.from(DEFAULT_IMAGE_PROMPT));
         }
-
-        List<Content> modelContents = new ArrayList<>(contents.size() + 1);
-        modelContents.add(TextContent.from(DEFAULT_IMAGE_PROMPT));
         modelContents.addAll(contents);
+        modelContents.add(TextContent.from(TOOL_SEARCH_REMINDER));
         return List.copyOf(modelContents);
     }
 

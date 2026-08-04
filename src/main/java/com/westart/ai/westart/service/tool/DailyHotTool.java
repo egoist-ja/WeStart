@@ -38,9 +38,9 @@ public class DailyHotTool {
             "联网搜索没有返回可用结果", "联网搜索失败", "联网搜索暂时不可用",
             "联网搜索工具尚未配置");
 
-    @Tool(value = "当用户需要获取每日热点新闻摘要并发送到指定邮箱时调用该工具。" +
-            "toEmail表示接收热点摘要的邮箱地址（必填），" +
-            "如果用户没有提供邮箱地址，则不调用该方法，并提示用户提供邮箱地址")
+    @Tool(value = "获取当天热点新闻，生成摘要并发送到指定电子邮箱。"
+            + "本工具会直接发送邮件，不用于只查看热点新闻。toEmail为收件邮箱，必填；"
+            + "用户未提供邮箱地址时不要调用。")
     public String sendDailyHotToEmail(String toEmail) {
         long startTime = System.currentTimeMillis();
         log.info("[DailyHotTool] sendDailyHotToEmail 开始执行，toEmail={}", toEmail);

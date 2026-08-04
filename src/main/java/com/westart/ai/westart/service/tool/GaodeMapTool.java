@@ -50,7 +50,8 @@ public class GaodeMapTool {
     }
 
     //地理编码
-    @Tool("地址转坐标。address=结构化地址（必填），city=城市限定（选填，中文名/citycode/adcode）")
+    @Tool("将结构化文字地址解析为精确经纬度坐标，用于定位地点并为周边搜索、距离计算和路线规划提供坐标。"
+            + "address为完整地址，必填；city为城市名称、citycode或adcode，选填，用于限定搜索范围。")
     public String geocode(String address, String city) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -77,7 +78,8 @@ public class GaodeMapTool {
     }
 
     //逆地理编码
-    @Tool("坐标转地址。location=经纬度，格式\"经度,纬度\"（必填）")
+    @Tool("将经纬度坐标解析为详细文字地址和周边位置描述。"
+            + "location为\"经度,纬度\"格式的坐标，必填，不接受文字地址。")
     public String regeo(String location) {
         try {
             String url = new HttpUrl.Builder()
@@ -101,7 +103,9 @@ public class GaodeMapTool {
 
     //POI关键字搜索
 
-    @Tool("按关键词搜索兴趣点（旅游规划第一步用此工具搜景点）。keywords=关键词（必填），city=城市限定（选填），types=POI分类编码（选填，如050000=餐饮）")
+    @Tool("按名称、关键词或类别搜索景点、酒店、餐厅、商场、车站等兴趣点，返回地点信息和坐标。"
+            + "适用于城市范围内查找地点，不用于以某个坐标为中心的附近搜索。"
+            + "keywords为搜索词，必填；city为城市限定，选填；types为POI分类编码，选填。")
     public String searchPOI(String keywords, String city, String types) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -134,7 +138,10 @@ public class GaodeMapTool {
     }
 
     //POI周边搜索
-    @Tool("搜索坐标周边兴趣点。location=中心点\"经度,纬度\"（必填），keywords=关键词（选填），radius=半径米（选填，默认5000，范围0-50000）")
+    @Tool("根据中心点经纬度搜索指定半径内的景点、酒店、餐厅、商店等周边兴趣点。"
+            + "本工具只接受坐标；用户只提供文字地址时，必须先调用地址转坐标工具。"
+            + "location格式为\"经度,纬度\"，必填；keywords为搜索词，选填；"
+            + "radius为搜索半径米，选填，默认5000，范围0至50000。")
     public String searchAround(String location, String keywords, String radius) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -166,7 +173,9 @@ public class GaodeMapTool {
         }
     }
     //IP定位
-    @Tool("IP定位，仅城市级精度、仅国内IPv4。ip=IPv4地址（选填，不填则用服务器IP，非用户位置）。仅用户明确给IP时使用")
+    @Tool("根据中国大陆IPv4地址查询其所属省份和城市，仅提供城市级定位。"
+            + "ip为IPv4地址；不传时定位的是服务器公网IP，不代表用户位置，"
+            + "因此只有用户明确提供IP地址时才可用于用户定位。")
     public String locateIP(String ip) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -190,7 +199,9 @@ public class GaodeMapTool {
     }
 
     //驾车路线规划
-    @Tool("驾车路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），strategy=0速度优先/1避收费/2最短/3避高速（选填），waypoints=途经点\"lng1,lat1;lng2,lat2\"（选填，最多16个）")
+    @Tool("规划两个经纬度坐标之间的驾车路线，可设置避收费、最短路线、避高速和途经点。"
+            + "origin和destination分别为起终点\"经度,纬度\"，必填；文字地址必须先转换为坐标。"
+            + "strategy和waypoints为选填参数。")
     public String driving(String origin, String destination, String strategy, String waypoints) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -223,7 +234,9 @@ public class GaodeMapTool {
     }
 
     //公交路线规划
-    @Tool("公交/地铁路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），city=城市（必填），strategy=0最快捷/1最少换乘/2最少步行/3不乘地铁（选填）")
+    @Tool("规划两个经纬度坐标之间的公交和地铁出行路线，可选择最快、最少换乘、最少步行或不乘地铁。"
+            + "origin和destination分别为起终点坐标，city为所在城市，均为必填；"
+            + "文字地址必须先转换为坐标。strategy为选填参数。")
     public String transit(String origin, String destination, String city, String strategy) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -253,7 +266,8 @@ public class GaodeMapTool {
     }
 
     //步行路线规划
-    @Tool("步行路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填）")
+    @Tool("规划两个经纬度坐标之间的步行路线。origin和destination分别为起终点\"经度,纬度\"，"
+            + "均为必填；文字地址必须先转换为坐标。")
     public String walking(String origin, String destination) {
         try {
             String url = new HttpUrl.Builder()
@@ -276,7 +290,8 @@ public class GaodeMapTool {
     }
 
     //骑行路线规划
-    @Tool("骑行路线规划。origin=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填）")
+    @Tool("规划两个经纬度坐标之间的骑行路线。origin和destination分别为起终点\"经度,纬度\"，"
+            + "均为必填；文字地址必须先转换为坐标。")
     public String bicycling(String origin, String destination) {
         try {
             String url = new HttpUrl.Builder()
@@ -299,7 +314,9 @@ public class GaodeMapTool {
     }
 
     //距离测量
-    @Tool("距离测量。origins=起点\"经度,纬度\"（必填），destination=终点\"经度,纬度\"（必填），type=0直线/1驾车/3步行（选填，默认0）")
+    @Tool("计算一个或多个起点到同一终点的直线、驾车或步行距离。"
+            + "origins为起点坐标，destination为终点坐标，均为必填；文字地址必须先转换为坐标。"
+            + "type为距离类型，0直线、1驾车、3步行，选填，默认0。")
     public String distance(String origins, String destination, String type) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -327,7 +344,8 @@ public class GaodeMapTool {
     }
 
     //行政区域查询
-    @Tool("行政区域查询。keywords=区域名称（必填），subdistrict=下级层级0~3（选填，0=不返回/1=下一级/2=下两级/3=下三级）")
+    @Tool("查询中国行政区域的区划信息及下级省、市、区县结构。"
+            + "keywords为行政区域名称，必填；subdistrict为返回下级区域的层级，选填，范围0至3。")
     public String district(String keywords, String subdistrict) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -355,7 +373,9 @@ public class GaodeMapTool {
     }
 
     //输入提示
-    @Tool("地址输入提示，返回候选列表（不返回坐标）。keywords=关键词（必填），city=城市限定（选填）")
+    @Tool("根据不完整的地点或地址关键词返回候选地址列表，用于地址补全和消歧，不返回经纬度。"
+            + "keywords为不完整地址或地点名称，必填；city为城市限定，选填。"
+            + "需要精确坐标时，应在用户确认候选地址后调用地址转坐标工具。")
     public String inputTips(String keywords, String city) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -382,7 +402,9 @@ public class GaodeMapTool {
     }
 
     //静态地图
-    @Tool("生成静态地图图片链接。location=中心点\"经度,纬度\"（必填），zoom=1~17（选填，默认14），size=\"宽*高\"（选填，默认400*300），markers=标注点\"lng1,lat1;lng2,lat2\"（选填，最多10个）")
+    @Tool("根据中心点坐标生成可访问的静态地图图片链接，并可设置缩放、图片尺寸和地图标注点。"
+            + "location为中心点\"经度,纬度\"，必填；zoom、size和markers为选填参数。"
+            + "本工具只生成地图图片，不执行地点搜索或路线规划。")
     public String staticMap(String location, String zoom, String size, String markers) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
@@ -423,7 +445,9 @@ public class GaodeMapTool {
     }
 
     //坐标转换
-    @Tool("坐标转换至目标系。locations=坐标串\"lng,lat|lng,lat\"（必填），coordsys=源坐标系gps/mapbar/baidu（选填，默认gps）")
+    @Tool("将GPS、百度或Mapbar坐标转换为高德坐标，用于统一不同来源的经纬度坐标系。"
+            + "locations为一个或多个坐标，格式\"lng,lat|lng,lat\"，必填；"
+            + "coordsys为源坐标系gps、baidu或mapbar，选填，默认gps。")
     public String coordinateConvert(String locations, String coordsys) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()
