@@ -560,11 +560,9 @@
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const loginStatus = await response.json();
-            if (loginStatus.status === 'LOGGED_IN') {
-                await loadQrCode();
-                return;
-            }
-            if (loginStatus.status === 'EXPIRED' || loginStatus.status === 'ERROR') {
+            if (loginStatus.status === 'LOGGED_IN'
+                || loginStatus.status === 'EXPIRED'
+                || loginStatus.status === 'ERROR') {
                 await loadQrCode();
                 return;
             }

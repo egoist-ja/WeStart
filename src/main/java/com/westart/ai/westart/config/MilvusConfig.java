@@ -221,18 +221,19 @@ public class MilvusConfig {
                 .functionType(FunctionType.BM25)
                 .name("topic_bm25")
                 .inputFieldNames(Collections.singletonList("searchable_content"))
-                .outputFieldNames(Collections.singletonList("sparse_vector"))
+                .outputFieldNames(Collections.singletonList(
+                        "searchable_content_sparse_vector"))
                 .build());
 
         List<IndexParam> indexes = new ArrayList<>();
         indexes.add(IndexParam.builder()
-                .fieldName("dense_vector")
+                .fieldName("searchable_content_dense_vector")
                 .indexName("dense_vector_index")
                 .indexType(IndexParam.IndexType.AUTOINDEX)
                 .metricType(IndexParam.MetricType.COSINE)
                 .build());
         indexes.add(IndexParam.builder()
-                .fieldName("sparse_vector")
+                .fieldName("searchable_content_sparse_vector")
                 .indexName("sparse_vector_index")
                 .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX)
                 .metricType(IndexParam.MetricType.BM25)

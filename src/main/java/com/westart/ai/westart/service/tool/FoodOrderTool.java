@@ -62,10 +62,10 @@ public class FoodOrderTool {
      * @param radius   搜索半径，单位米（选填，默认3000，范围0-50000）
      * @return 格式化的餐厅列表，含名称、地址、评分、人均、电话和导航链接
      */
-    @Tool("搜索周边餐厅。" +
-          "location=中心点\"经度,纬度\"（必填，需先用高德地理编码将用户地址转为经纬度），" +
-          "keywords=菜系或餐厅关键词（选填，如川菜、火锅、快餐、烧烤），" +
-          "radius=搜索半径米（选填，默认3000）")
+//    @Tool("根据中心点经纬度搜索附近餐厅，返回餐厅名称、地址、距离、评分、人均消费、电话和导航链接。"
+//            + "本工具只接受经纬度，不接受文字地址；用户只提供地址时，必须先调用地址转坐标工具。"
+//            + "location格式为\"经度,纬度\"，必填；keywords为菜系或餐厅关键词，选填；"
+//            + "radius为搜索半径米，选填，默认3000。")
     public String searchNearbyRestaurants(String location, String keywords, String radius) {
         try {
             HttpUrl.Builder urlBuilder = new HttpUrl.Builder()

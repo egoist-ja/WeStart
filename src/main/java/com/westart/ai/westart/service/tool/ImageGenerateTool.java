@@ -37,11 +37,9 @@ public class ImageGenerateTool {
     @Tool(
             returnBehavior = ReturnBehavior.IMMEDIATE,
             value = """
-                    根据用户描述实际生成图片。
-                    仅当用户明确要求生成、绘制或设计图片时调用本工具。
-                    用户仅要求分析图片、描述已有图片内容、编写提示词或咨询图片生成技术时不要调用。
-                    context必须完整保留用户明确提出的主体、场景、风格、构图和用途，
-                    不得擅自改变用户的核心需求，也不得添加用户明确排除的内容。
+                    根据文字描述生成一张新图片，适用于绘画、海报、插图、视觉设计和场景图生成。
+                    仅当用户明确要求实际生成图片时调用；分析已有图片、描述图片、编写提示词或咨询图片技术时不要调用。
+                    context为完整图片需求，必须保留用户指定的主体、场景、风格、构图、用途和排除项。
                     """)
     public List<Image> generateImage(@P("完整、准确的图片生成描述，最多1000个字符") String context) {
         if (StringUtils.isBlank(context)) {

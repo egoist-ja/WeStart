@@ -51,7 +51,7 @@ public class ToolConfig {
                 if (requestContext instanceof EmbeddingStoreRequestContext.Search<?> searchContext) {
                     EmbeddingSearchRequest request = searchContext.searchRequest();
                     log.info(
-                            "工具搜索请求，query={}，maxResults={}，minScore={}",
+                            "工具搜索请求，查询语句={}，最大结果数={}，最低分数={}",
                             request.query(),
                             request.maxResults(),
                             request.minScore());
@@ -84,7 +84,7 @@ public class ToolConfig {
             @Override
             public void onError(EmbeddingStoreErrorContext<?> errorContext) {
                 Throwable error = errorContext.error();
-                log.error("工具向量存储操作失败，operation={}，reason={}",
+                log.error("工具向量存储操作失败，操作类型={}，失败原因={}",
                         errorContext.requestContext().getClass().getSimpleName(),
                         error.getMessage(),
                         error);
@@ -101,11 +101,11 @@ public class ToolConfig {
     private String formatToolMatch(EmbeddingMatch<?> match) {
         Object embedded = match.embedded();
         if (!(embedded instanceof ToolEntity toolEntity)) {
-            return "未知工具(score=" + match.score() + ")";
+            return "未知工具(分数=" + match.score() + ")";
         }
         return toolEntity.name()
-                + "(type=" + toolEntity.type()
-                + ", score=" + match.score() + ")";
+                + "(类型=" + toolEntity.type()
+                + "，分数=" + match.score() + ")";
     }
 
     /**

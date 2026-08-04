@@ -28,7 +28,7 @@ public class ModelConfig {
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
                 .modelName("qwen3.7-plus")
-                .customParameters(Map.of("enable_thinking", false))
+                .customParameters(Map.of("enable_thinking", true))
                 .listeners(List.of(assistantListener))
                 .build();
     }
@@ -100,6 +100,19 @@ public class ModelConfig {
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
                 .modelName("text-embedding-v4")
                 .dimension(1024)
+                .build();
+    }
+
+    /**
+     * 提取用户自画像模型
+     * @return
+     */
+    @Bean
+    public QwenChatModel extraProfileModel(){
+        return QwenChatModel.builder()
+                .apiKey(System.getenv("QWEN_API_KEY"))
+                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
+                .modelName("qwen3.5-flash")
                 .build();
     }
 }

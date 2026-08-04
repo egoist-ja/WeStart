@@ -3,7 +3,7 @@ package com.westart.ai.westart.repository.impl;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.westart.ai.westart.DTO.ChatMemorySearchRequest;
-import com.westart.ai.westart.entity.ChatMessage;
+import com.westart.ai.westart.entity.UserTopicMemory;
 import com.westart.ai.westart.repository.ChatMessageRepository;
 import io.milvus.common.clientenum.FunctionType;
 import io.milvus.v2.client.MilvusClientV2;
@@ -12,7 +12,6 @@ import io.milvus.v2.service.collection.request.CreateCollectionReq;
 import io.milvus.v2.service.vector.request.AnnSearchReq;
 import io.milvus.v2.service.vector.request.HybridSearchReq;
 import io.milvus.v2.service.vector.request.InsertReq;
-import io.milvus.v2.service.vector.request.SearchReq;
 import io.milvus.v2.service.vector.request.data.EmbeddedText;
 import io.milvus.v2.service.vector.request.data.FloatVec;
 import io.milvus.v2.service.vector.response.InsertResp;
@@ -35,8 +34,8 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
     private static final String COLLECTION_NAME = "user_topic_memory";
 
     @Override
-    public InsertResp insertBatch(List<ChatMessage> messages) {
-        if(messages==null||messages.isEmpty()){
+    public InsertResp insertBatch(List<UserTopicMemory> messages) {
+        if (messages == null || messages.isEmpty()) {
             log.info("插入列表为空");
             return InsertResp.builder()
                     .InsertCnt(0)
@@ -65,6 +64,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
                 .metricType(IndexParam.MetricType.COSINE)
                 .vectorFieldName("searchable_content_dense_vector")
                 .vectors(List.of(new FloatVec(searchRequest.embedding())))
+                .filter(searchRequest.expr())
                 .limit(searchRequest.maxResults())
                 .build();
         //稀疏向量场搜索
@@ -72,6 +72,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
                 .metricType(IndexParam.MetricType.BM25)
                 .vectorFieldName("searchable_content_sparse_vector")
                 .vectors(List.of(new EmbeddedText(searchRequest.query())))
+                .filter(searchRequest.expr())
                 .limit(searchRequest.maxResults())
                 .build();
 
@@ -85,10 +86,11 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
                         .param("reranker", "rrf")
                         .build())
                 .outFields(List.of(
-                        "memoryId",
-                        "wechatUserId",
-                        "topic","searchableContent",
-                        "occurredAt","expiresAt"
+                        "wechat_user_id",
+                        "topic",
+                        "searchable_content",
+                        "occurred_at",
+                        "expires_at"
                 ))
                 .searchRequests(List.of(request1, request2))
                 .build());

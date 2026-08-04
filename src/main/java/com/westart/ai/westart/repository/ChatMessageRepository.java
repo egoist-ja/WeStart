@@ -1,28 +1,30 @@
 package com.westart.ai.westart.repository;
 
 import com.westart.ai.westart.DTO.ChatMemorySearchRequest;
-import com.westart.ai.westart.entity.ChatMessage;
+import com.westart.ai.westart.entity.UserTopicMemory;
 import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
 
 import java.util.List;
 
 /**
- * RAG中存储的聊天消息
+ * 用户主题记忆向量仓储。
  */
 public interface ChatMessageRepository {
 
     /**
-     * 批量插入用户历史消息
-     * @param messages
-     * @return
+     * 批量插入用户主题记忆。
+     *
+     * @param messages 用户主题记忆列表
+     * @return Milvus插入结果
      */
-    InsertResp insertBatch(List<ChatMessage> messages);
+    InsertResp insertBatch(List<UserTopicMemory> messages);
 
     /**
-     * 对用户客观事实消息进行混合搜索
-     * @param searchRequest
-     * @return
+     * 混合搜索用户主题记忆。
+     *
+     * @param searchRequest 主题记忆搜索请求
+     * @return Milvus搜索结果
      */
     SearchResp search(ChatMemorySearchRequest searchRequest);
 }

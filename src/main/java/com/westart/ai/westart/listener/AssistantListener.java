@@ -31,11 +31,17 @@ public class AssistantListener implements ChatModelListener {
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         ChatRequest request = requestContext.chatRequest();
-        log.info("微信助手模型请求，model={}，messageCount={}，toolChoice={}，toolCount={}",
+        List<String> visibleToolNames = request.toolSpecifications().stream()
+                .filter(tool -> tool != null)
+                .map(tool -> tool.name())
+                .toList();
+        log.info("微信助手模型请求，模型名称={}，消息数={}，工具选择策略={}，"
+                        + "可见工具数={}，可见工具={}",
                 request.modelName(),
                 request.messages().size(),
                 request.toolChoice(),
-                request.toolSpecifications().size());
+                visibleToolNames.size(),
+                visibleToolNames);
         logLatestToolResults(request.messages());
     }
 
@@ -47,13 +53,14 @@ public class AssistantListener implements ChatModelListener {
     @Override
     public void onResponse(ChatModelResponseContext responseContext) {
         AiMessage aiMessage = responseContext.chatResponse().aiMessage();
-        log.info("微信助手模型响应，model={}，finishReason={}，toolCallCount={}",
+        log.info("微信助手模型响应，模型名称={}，结束原因={}，调用工具数={}",
                 responseContext.chatResponse().modelName(),
                 responseContext.chatResponse().finishReason(),
                 aiMessage.toolExecutionRequests().size());
         for (ToolExecutionRequest toolRequest
                 : aiMessage.toolExecutionRequests()) {
-            log.info("微信助手工具调用，toolName={}，arguments={}",
+            log.info("微信助手工具调用，调用编号={}，工具名称={}，调用参数={}",
+                    toolRequest.id(),
                     toolRequest.name(),
                     truncate(toolRequest.arguments()));
         }
@@ -67,7 +74,7 @@ public class AssistantListener implements ChatModelListener {
     @Override
     public void onError(ChatModelErrorContext errorContext) {
         Throwable error = errorContext.error();
-        log.error("微信助手模型调用失败，model={}，reason={}",
+        log.error("微信助手模型调用失败，模型名称={}，失败原因={}",
                 errorContext.chatRequest().modelName(),
                 error.getMessage(),
                 error);
@@ -89,7 +96,8 @@ public class AssistantListener implements ChatModelListener {
         for (int index = firstResultIndex; index < messages.size(); index++) {
             ToolExecutionResultMessage resultMessage =
                     (ToolExecutionResultMessage) messages.get(index);
-            log.info("微信助手工具执行结果，toolName={}，result={}",
+            log.info("微信助手工具执行结果，调用编号={}，工具名称={}，执行结果={}",
+                    resultMessage.id(),
                     resultMessage.toolName(),
                     truncate(resultMessage.text()));
         }
