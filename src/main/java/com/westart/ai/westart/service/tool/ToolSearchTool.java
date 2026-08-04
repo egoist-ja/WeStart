@@ -46,11 +46,11 @@ public class ToolSearchTool implements ToolSearchStrategy {
     public List<ToolSpecification> getToolSearchTools(InvocationContext invocationContext) {
         return List.of(ToolSpecification.builder()
                 .name(SEARCH_TOOL_NAME)
-                .description("根据完整的用户需求查找能够完成任务的工具")
+                .description("动态工具发现入口。每次收到新的用户请求时，先核对当前可见工具是否明确支持所需的业务对象、操作和结果；缺少任何必要能力时，调用本工具搜索缺失能力。领域相关不代表能力匹配，例如地点搜索工具不能查询门店菜单")
                 .parameters(JsonObjectSchema.builder()
                         .addStringProperty(
                                 QUERY_ARGUMENT_NAME,
-                                "结合对话上下文整理出的完整工具需求")
+                                "按照“业务对象或服务领域 + 操作能力 + 预期结果”描述缺失的工具能力。可以包含餐饮、酒店、饮品等用于区分工具的业务语义，不得包含具体地址、城市、日期、预算、第几家等执行值。例如：查询指定麦当劳门店的菜单商品、规格、价格和可售状态")
                         .required(QUERY_ARGUMENT_NAME)
                         .build())
                 .build());
@@ -72,6 +72,8 @@ public class ToolSearchTool implements ToolSearchStrategy {
 
         String query = extractQuery(
                 toolSearchRequest.toolExecutionRequest().arguments());
+        log.info("AI调用工具搜索，工具名称={}，查询语句={}",
+                SEARCH_TOOL_NAME, query);
         List<ToolEntity> matchedTools;
         try {
             matchedTools = toolSearchService.searchTools(query);
@@ -142,10 +144,10 @@ public class ToolSearchTool implements ToolSearchStrategy {
             return List.of();
         }
 
-        Set<String> availableToolNames = new LinkedHashSet<>();
+        Set<String> searchableToolNames = new LinkedHashSet<>();
         for (ToolSpecification searchableTool : searchableTools) {
             if (searchableTool != null && searchableTool.name() != null) {
-                availableToolNames.add(searchableTool.name());
+                searchableToolNames.add(searchableTool.name());
             }
         }
 
@@ -155,16 +157,16 @@ public class ToolSearchTool implements ToolSearchStrategy {
                 continue;
             }
             if (matchedTool.type() == ToolType.LOCAL) {
-                if (availableToolNames.contains(matchedTool.name())) {
+                if (searchableToolNames.contains(matchedTool.name())) {
                     foundToolNames.add(matchedTool.name());
                 }
                 continue;
             }
 
-            String mcpToolNamePrefix = matchedTool.name()
+            String toolNamePrefix = matchedTool.name()
                     + MCP_TOOL_NAME_SEPARATOR;
-            availableToolNames.stream()
-                    .filter(name -> name.startsWith(mcpToolNamePrefix))
+            searchableToolNames.stream()
+                    .filter(name -> name.startsWith(toolNamePrefix))
                     .forEach(foundToolNames::add);
         }
         return List.copyOf(foundToolNames);

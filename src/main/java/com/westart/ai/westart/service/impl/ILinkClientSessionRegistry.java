@@ -123,6 +123,7 @@ public class ILinkClientSessionRegistry {
         }
 
         ILinkClientSession session = sessionMap.remove(sessionId);
+        removeUserMapping(sessionId);
         if (session == null) {
             return false;
         }
@@ -150,6 +151,7 @@ public class ILinkClientSessionRegistry {
                 log.error("关闭iLink客户端会话失败，sessionId={}", sessionId, exception);
             }
         }
+        userSessionMap.clear();
     }
 
     /**
@@ -164,5 +166,15 @@ public class ILinkClientSessionRegistry {
         } finally {
             session.client().close();
         }
+    }
+
+    /**
+     * 删除指向指定会话的用户关联，避免关闭后保留失效映射。
+     *
+     * @param sessionId 会话唯一标识
+     */
+    private void removeUserMapping(String sessionId) {
+        userSessionMap.entrySet().removeIf(
+                entry -> sessionId.equals(entry.getValue()));
     }
 }

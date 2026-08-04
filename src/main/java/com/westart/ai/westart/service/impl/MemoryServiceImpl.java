@@ -12,12 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -207,7 +202,7 @@ public class MemoryServiceImpl implements MemoryService {
             throw new IllegalStateException("第二阶段用户画像模型调用失败", exception);
         }
 
-        List<MemoryAssistant.ProfileMemory> profileMemories = profileResult == null
+        List<String> profileMemories = profileResult == null
                 ? Collections.emptyList()
                 : profileResult.memories();
         if (profileMemories == null || profileMemories.isEmpty()) {
@@ -218,8 +213,8 @@ public class MemoryServiceImpl implements MemoryService {
         }
 
         List<String> profileContents = profileMemories.stream()
-                .filter(memory -> memory != null && !StringUtils.isBlank(memory.content()))
-                .map(memory -> memory.content().trim())
+                .filter(memory -> memory != null && !StringUtils.isBlank(memory))
+                .map(String::trim)
                 .distinct()
                 .toList();
         log.info(
@@ -335,7 +330,7 @@ public class MemoryServiceImpl implements MemoryService {
      */
     private String toAnalysisJson(List<ChatHistoryService.StreamMessage> messages) {
         List<Map<String, Object>> analysisMessages = messages.stream()
-                .filter(message -> message != null)
+                .filter(Objects::nonNull)
                 .map(message -> {
                     Map<String, Object> fields = new LinkedHashMap<>();
                     fields.put("messageId", message.messageId());

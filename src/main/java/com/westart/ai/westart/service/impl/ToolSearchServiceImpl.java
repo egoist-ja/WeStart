@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.westart.ai.westart.config.McpProperties;
 import com.westart.ai.westart.entity.ToolEntity;
 import com.westart.ai.westart.entity.ToolType;
-import com.westart.ai.westart.infra.ToolEmbeddingStore;
+import com.westart.ai.westart.repository.ToolRepository;
 import com.westart.ai.westart.service.ToolSearchService;
 import com.westart.ai.westart.service.tool.ToolRegistry;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -12,11 +12,9 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.service.tool.ToolProvider;
-import dev.langchain4j.service.tool.search.ToolSearchStrategy;
-import dev.langchain4j.service.tool.search.vector.VectorToolSearchStrategy;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -43,7 +41,8 @@ public class ToolSearchServiceImpl implements ToolSearchService {
     private final ToolRegistry toolRegistry;
     private final McpProperties mcpProperties;
     private final EmbeddingModel embeddingModel;
-    private final ToolEmbeddingStore toolEmbeddingStore;
+    private final EmbeddingStore<ToolEntity> toolEmbeddingStore;
+    private final ToolRepository toolRepository;
     private final Gson gson;
 
     @Override
@@ -57,8 +56,8 @@ public class ToolSearchServiceImpl implements ToolSearchService {
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .query(query)
                 .queryEmbedding(embedding)
-                .maxResults(5)
-                .minScore(0.6)
+                .maxResults(3)
+                .minScore(0.0)
                 .build();
 
         return toolEmbeddingStore.search(request)
@@ -96,6 +95,10 @@ public class ToolSearchServiceImpl implements ToolSearchService {
                     .embedAll(segments)
                     .content();
             toolEmbeddingStore.addAll(embeddings, toolEntities);
+            List<String> activeIds = toolEntities.stream()
+                    .map(ToolEntity::id)
+                    .toList();
+            toolRepository.deleteInactiveTools(activeIds);
             log.info("工具向量初始化完成，工具数量：{}", toolEntities.size());
         } catch (RuntimeException e) {
             log.error("工具向量初始化失败，工具数量：{}", toolEntities.size(), e);
@@ -158,10 +161,19 @@ public class ToolSearchServiceImpl implements ToolSearchService {
             serverName = clientKey;
         }
 
+        String configuredDescription = serverConfig == null
+                ? null
+                : serverConfig.getDescription();
         String instructions = mcpClient.instructions();
-        String description = instructions == null || instructions.isBlank()
-                ? serverName + " MCP服务"
-                : serverName + "：" + instructions;
+        String description;
+        if (configuredDescription != null
+                && !configuredDescription.isBlank()) {
+            description = configuredDescription;
+        } else if (instructions != null && !instructions.isBlank()) {
+            description = serverName + "：" + instructions;
+        } else {
+            description = serverName + " MCP服务";
+        }
         return new ToolEntity(
                 stableId(MCP_ID_PREFIX + clientKey),
                 ToolType.MCP,

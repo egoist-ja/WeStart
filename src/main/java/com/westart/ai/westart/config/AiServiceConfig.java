@@ -7,14 +7,15 @@ import com.westart.ai.westart.service.tool.FoodOrderTool;
 import com.westart.ai.westart.service.tool.GaodeMapTool;
 import com.westart.ai.westart.service.tool.ImageGenerateTool;
 import com.westart.ai.westart.service.tool.LogisticsTool;
-import com.westart.ai.westart.service.tool.MeituanTravelTool;
+import com.westart.ai.westart.service.tool.ToolCallGuard;
+import com.westart.ai.westart.service.tool.ToolSearchTool;
 import com.westart.ai.westart.service.tool.WeatherTool;
 import com.westart.ai.westart.service.tool.WebSearchTool;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.observability.api.listener.ToolExecutedEventListener;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.tool.search.ToolSearchStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -27,6 +28,7 @@ public class AiServiceConfig {
      * @param weChatAssistantModel 微信聊天模型
      * @param redisChatMemoryProvider Redis聊天记忆提供器
      * @param toolSearchTool 工具搜索策略
+     * @param toolCallGuard 工具重复调用保护器
      * @param mcpToolProvider MCP工具提供器
      * @param weatherTool 天气工具
      * @param logisticsTool 物流工具
@@ -36,14 +38,14 @@ public class AiServiceConfig {
      * @param dailyHotTool 每日热点工具
      * @param fileFormatTool 文件格式工具
      * @param foodOrderTool 餐饮工具
-     * @param meituanTravelTool 美团酒旅工具
      * @return 微信聊天助手
      */
     @Bean
     public WeChatAssistant weChatAssistant(
             ChatModel weChatAssistantModel,
             ChatMemoryProvider redisChatMemoryProvider,
-            ToolSearchStrategy toolSearchTool,
+            ToolSearchTool toolSearchTool,
+            ToolCallGuard toolCallGuard,
             McpToolProvider mcpToolProvider,
             WeatherTool weatherTool,
             LogisticsTool logisticsTool,
@@ -51,9 +53,8 @@ public class AiServiceConfig {
             GaodeMapTool gaodeMapTool,
             ImageGenerateTool imageGenerateTool,
             DailyHotTool dailyHotTool,
-            FileFormatTool fileFormatTool,
-            FoodOrderTool foodOrderTool,
-            MeituanTravelTool meituanTravelTool) {
+            FileFormatTool fileFormatTool
+            /**FoodOrderTool foodOrderTool8*/, ToolExecutedEventListener toolExecutedEventListener) {
         return AiServices.builder(WeChatAssistant.class)
                 .chatModel(weChatAssistantModel)
                 .chatMemoryProvider(redisChatMemoryProvider)
@@ -64,11 +65,12 @@ public class AiServiceConfig {
                         gaodeMapTool,
                         imageGenerateTool,
                         dailyHotTool,
-                        fileFormatTool,
-                        foodOrderTool,
-                        meituanTravelTool)
+                        fileFormatTool)
                 .toolProvider(mcpToolProvider)
                 .toolSearchStrategy(toolSearchTool)
+                .chatRequestTransformer(toolCallGuard::apply)
+                .maxToolCallingRoundTrips(10)
+                .registerListener(toolExecutedEventListener)
                 .build();
     }
 }

@@ -7,7 +7,8 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.github.wechat.ilink.sdk.core.login.LoginStatus;
 import com.westart.ai.westart.DTO.LoginSessionResult;
-import com.westart.ai.westart.service.WeChatAgentService;
+import com.westart.ai.westart.service.UserMessageService;
+import com.westart.ai.westart.service.WeChatLoginService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,7 +33,8 @@ public class WeChatAgentController {
     private static final int QR_CODE_HEIGHT = 320;
     private static final String SESSION_ID_HEADER = "X-WeChat-Session-Id";
 
-    private final WeChatAgentService weChatAgentService;
+    private final WeChatLoginService weChatLoginService;
+    private final UserMessageService userMessageService;
 
     @GetMapping("/login")
     public ResponseEntity<Void> loginPage() {
@@ -43,7 +45,7 @@ public class WeChatAgentController {
 
     @GetMapping(value = "/login/qrcode", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> loginQrCode() {
-        LoginSessionResult loginResult = weChatAgentService.userLogin();
+        LoginSessionResult loginResult = weChatLoginService.createLogin();
         try {
             BitMatrix matrix = new QRCodeWriter().encode(
                     loginResult.qrCodeContent(),
@@ -70,7 +72,7 @@ public class WeChatAgentController {
      */
     @GetMapping("/login/status")
     public ResponseEntity<LoginStatus> loginStatus(@RequestParam String sessionId) {
-        return ResponseEntity.ok(weChatAgentService.getLoginStatus(sessionId));
+        return ResponseEntity.ok(weChatLoginService.getLoginStatus(sessionId));
     }
 
     /**
@@ -81,7 +83,7 @@ public class WeChatAgentController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestParam String sessionId) {
-        weChatAgentService.logout(sessionId);
+        weChatLoginService.logout(sessionId);
         return ResponseEntity.noContent().build();
     }
 
@@ -98,7 +100,7 @@ public class WeChatAgentController {
             @RequestParam String sessionId,
             @RequestParam String userId,
             @RequestParam String content) {
-        weChatAgentService.sendMessage(sessionId, userId, content);
+        userMessageService.sendMessage(sessionId, userId, content);
         return ResponseEntity.noContent().build();
     }
 }

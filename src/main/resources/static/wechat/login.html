@@ -3,215 +3,651 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WeStart · 微信机器人登录</title>
+    <title>Claw Bot · 微信扫码登录</title>
     <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg-start: #f3f4f6;
-            --bg-end:   #eaecf0;
-            --card-bg:  #ffffff;
-            --text-primary:   #1f2937;
-            --text-secondary: #6b7280;
-            --text-muted:     #9ca3af;
-            --qr-bg:    #f9fafb;
-            --qr-border:#e5e7eb;
-            --shadow-sm: 0 1px  2px  rgba(0,0,0,.04);
-            --shadow-md: 0 4px  12px rgba(0,0,0,.06);
-            --shadow-lg: 0 16px 48px rgba(0,0,0,.07);
-            --radius-card: 20px;
-            --radius-qr:   14px;
+            --bg:            #faf9f6;
+            --text-main:     #1a1a1a;
+            --text-sub:      #666666;
+            --text-muted:    #999999;
+            --text-light:    #b5b2ab;
+            --line:          #c8c4ba;
+            --line-sub:      #dcd8cf;
+            --card-bg:       #ffffff;
+            --card-shadow:   0 1px 12px rgba(0,0,0,.04),
+                             0 4px 32px rgba(0,0,0,.05),
+                             0 12px 60px rgba(0,0,0,.03);
+            --radius:        28px;
+            /* 莫兰迪色系 */
+            --mor-blue:      #8b9eb0;
+            --mor-sage:      #8aaa9b;
+            --mor-rose:      #b8928a;
+            --mor-stone:     #b0a898;
+            --mor-lavender:  #9b92a8;
         }
 
-        html {
-            height: 100%;
+        html { height: 100%; }
+
+        /* 桌面端隐藏系统光标 */
+        @media (hover: hover) and (pointer: fine) {
+            html { cursor: none; }
         }
 
         body {
             display: flex;
+            flex-direction: column;
             min-height: 100vh;
             align-items: center;
             justify-content: center;
-            margin: 0;
-            padding: 24px;
-            color: var(--text-primary);
+            padding: 48px clamp(32px, 6vw, 80px);
+            background: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
                          "Microsoft YaHei", "Helvetica Neue", sans-serif;
             -webkit-font-smoothing: antialiased;
-            background:
-                linear-gradient(170deg, var(--bg-start) 0%, var(--bg-end) 100%) fixed;
-            animation: fadeIn 0.6s ease-out;
-        }
-
-        /* 细微点阵纹理 — 纯 CSS，无外部资源 */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background-image: radial-gradient(rgba(0,0,0,.03) 1px, transparent 1px);
-            background-size: 18px 18px;
-        }
-
-        /* 极淡光斑点缀 — 打破纯灰的单调感 */
-        body::after {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background:
-                radial-gradient(ellipse 420px 360px at 15% 85%, rgba(99,102,241,.025) 0%, transparent 100%),
-                radial-gradient(ellipse 320px 280px at 88% 12%, rgba(148,163,184,.03) 0%, transparent 100%);
-        }
-
-        /* 水印式背景标题 — 页面最底层，纯装饰 */
-        .watermark {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-            user-select: none;
-            font-size: clamp(64px, 14vw, 180px);
-            font-weight: 900;
-            color: rgba(203,213,225,.14);
-            white-space: nowrap;
-            letter-spacing: 0.06em;
-            text-indent: 0.06em;
+            animation: fadeIn 1s ease-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0);  }
+            from { opacity: 0; }
+            to   { opacity: 1; }
         }
 
-        /* —————— 卡片 —————— */
-        .login-card {
-            position: relative;
-            z-index: 1;
-            width: 420px;
-            max-width: 100%;
-            padding: 44px 40px 36px;
-            text-align: center;
-            background: var(--card-bg);
-            border-radius: var(--radius-card);
-            box-shadow: var(--shadow-sm), var(--shadow-md), var(--shadow-lg);
-            transition: transform 0.35s ease, box-shadow 0.35s ease;
+        /* —————— 左上角品牌标识 —————— */
+        .top-left-brand {
+            position: absolute;
+            top: 32px;
+            left: 40px;
+            font-size: 20px;
+            font-weight: 300;
+            color: #333333;
+            letter-spacing: 0.1em;
+            user-select: none;
         }
 
-        .login-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-sm), var(--shadow-md),
-                        0 24px 56px rgba(0,0,0,.09);
+        /* —————— 主容器：左右分栏宽松布局 —————— */
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1240px;
         }
 
-        /* —————— 排版 —————— */
-        h1 {
-            margin: 0 0 10px;
-            font-size: 26px;
+        /* —————— 左侧：品牌区 —————— */
+        .brand {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-logo {
+            font-size: clamp(80px, 13vw, 136px);
             font-weight: 700;
-            letter-spacing: 0.5px;
-            color: var(--text-primary);
+            letter-spacing: 0.03em;
+            color: var(--text-main);
+            line-height: 0.95;
         }
 
-        .brand-dot {
-            display: inline-block;
-            width: 7px;
-            height: 7px;
-            margin-left: 4px;
-            border-radius: 50%;
-            background: #6366f1;
-            vertical-align: super;
+        .brand-logo .accent {
+            color: inherit;
+            font-weight: inherit;
         }
 
-        .description {
-            margin: 0 0 28px;
-            font-size: 15px;
-            line-height: 1.6;
-            color: var(--text-secondary);
+        .brand-tagline {
+            font-size: 28px;
+            font-weight: 700;
+            color: #4a4a4a;
+            line-height: 1.3;
+            letter-spacing: 0.03em;
         }
 
-        /* —————— 二维码容器 —————— */
-        .qr-box {
+        /* —————— 右侧：二维码展示区 —————— */
+        .qr-panel {
+            flex: 0 0 auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 296px;
-            margin: 0 auto;
-            padding: 16px;
-            background: var(--qr-bg);
-            border: 1px solid var(--qr-border);
-            border-radius: var(--radius-qr);
+        }
+
+        .qr-stage {
+            position: relative;
+            width: 460px;
+            height: 460px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ——— 轨道层（旋转公转容器） ——— */
+        .orbit-layer {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .layer-1 { inset: 0;   animation: revolve1 50s linear infinite, breathe1 6s ease-in-out infinite; }
+        .layer-2 { inset: 12%; animation: revolve2 35s linear infinite reverse, breathe2 7s ease-in-out infinite .5s; }
+        .layer-3 { inset: 20%; animation: revolve3 26s linear infinite, breathe3 8s ease-in-out infinite 1.2s; }
+        .layer-4 { inset: 25%; animation: revolve4 20s linear infinite reverse, breathe4 6.5s ease-in-out infinite 2s; }
+
+        /* 公转 */
+        @keyframes revolve1 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes revolve2 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes revolve3 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes revolve4 { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* 轨道呼吸脉动（使用独立 scale 属性，不与 transform rotate 冲突） */
+        @keyframes breathe1 {
+            0%, 100% { scale: 1;     opacity: .5; }
+            50%      { scale: 1.045; opacity: .85; }
+        }
+        @keyframes breathe2 {
+            0%, 100% { scale: 1;     opacity: .45; }
+            50%      { scale: 1.055; opacity: .8; }
+        }
+        @keyframes breathe3 {
+            0%, 100% { scale: 1;     opacity: .4; }
+            50%      { scale: 1.06;  opacity: .75; }
+        }
+        @keyframes breathe4 {
+            0%, 100% { scale: 1;     opacity: .4; }
+            50%      { scale: 1.05;  opacity: .7; }
+        }
+
+        /* 轨道环 */
+        .orbit {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* 轨道若隐若现 */
+        @keyframes orbitFlicker1 {
+            0%, 100% { opacity: .9; }
+            15%      { opacity: .2; }
+            30%      { opacity: .85; }
+            45%      { opacity: .15; }
+            60%      { opacity: .9; }
+            75%      { opacity: .25; }
+            90%      { opacity: .8; }
+        }
+        @keyframes orbitFlicker2 {
+            0%, 100% { opacity: .25; }
+            20%      { opacity: .85; }
+            35%      { opacity: .15; }
+            55%      { opacity: .9; }
+            70%      { opacity: .2; }
+            85%      { opacity: .8; }
+        }
+        @keyframes orbitFlicker3 {
+            0%, 100% { opacity: .8; }
+            18%      { opacity: .15; }
+            38%      { opacity: .9; }
+            52%      { opacity: .2; }
+            72%      { opacity: .85; }
+            88%      { opacity: .15; }
+        }
+        @keyframes orbitFlicker4 {
+            0%, 100% { opacity: .15; }
+            25%      { opacity: .8; }
+            42%      { opacity: .2; }
+            58%      { opacity: .9; }
+            78%      { opacity: .15; }
+            92%      { opacity: .85; }
+        }
+
+        .orbit-1 { border: 0.5px solid #5a5a5a;   animation: orbitFlicker1 20s ease-in-out infinite; }
+        .orbit-2 { border: 0.5px dashed #636363;  animation: orbitFlicker2 24s ease-in-out infinite; }
+        .orbit-3 { border: 0.5px dashed #7a7a7a;  animation: orbitFlicker3 28s ease-in-out infinite; }
+        .orbit-4 { border: 0.5px dotted #8c8c8c;  animation: orbitFlicker4 22s ease-in-out infinite; }
+
+        /* ——— 装饰节点 ——— */
+        .node {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .node-xs { width: 3px; height: 3px; }
+        .node-sm { width: 5px; height: 5px; }
+        .node-md { width: 7px; height: 7px; }
+        .node-lg { width: 9px; height: 9px; }
+
+        .node-blue     { background: var(--mor-blue);     }
+        .node-sage     { background: var(--mor-sage);     }
+        .node-rose     { background: var(--mor-rose);     }
+        .node-stone    { background: var(--mor-stone);    }
+        .node-lavender { background: var(--mor-lavender); }
+
+        /* 节点呼吸闪烁 */
+        @keyframes nodeGlow {
+            0%, 100% { transform: scale(1);   opacity: .5;  }
+            35%      { transform: scale(2);   opacity: .95; }
+            70%      { transform: scale(1);   opacity: .5;  }
+        }
+
+        .node-pulse { animation: nodeGlow 3.5s ease-in-out infinite; }
+
+        /* ——— 二维码卡片 ——— */
+        .qr-card {
+            position: relative;
+            z-index: 2;
+            width: 186px;
+            height: 186px;
+            padding: 14px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .qr-code {
             display: block;
-            width: 264px;
-            max-width: 100%;
+            width: 100%;
             height: auto;
-            border-radius: 4px;
+            border-radius: 10px;
         }
 
-        /* —————— 底部提示 —————— */
-        .tip {
-            margin: 24px 0 0;
-            font-size: 13px;
-            color: var(--text-muted);
+        /* ——— 服务未启动遮罩 ——— */
+        .service-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            background: rgba(210, 65, 65, 0.38);
+            border-radius: var(--radius);
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
         }
 
-        /* —————— 错误提示 —————— */
+        .service-down .service-overlay {
+            display: flex;
+        }
+
+        /* ——— 过期提示文字（二维码卡片内部底部） ——— */
+        .qr-expire-hint {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            font-weight: 400;
+            color: #b8b3ab;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* ——— 错误提示 ——— */
         .error-message {
             display: none;
-            color: #ef4444;
+            position: absolute;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
             font-size: 14px;
-            line-height: 1.7;
+            color: #d9756b;
+            text-align: center;
+            padding: 16px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
         }
 
-        /* —————— 移动端适配 —————— */
-        @media (max-width: 480px) {
-            .login-card {
-                padding: 32px 24px 28px;
-                border-radius: 16px;
+        /* —————— 自定义光标与反色效果（仅桌面端） —————— */
+        @media (hover: hover) and (pointer: fine) {
+
+            /* 颜色反转圆 — 默认透明，触碰文字时显现，硬边缘黑白反色 */
+            .cursor-invert {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9998;
+                backdrop-filter: invert(1);
+                -webkit-backdrop-filter: invert(1);
+                transform: translate(-50%, -50%);
+                opacity: 0;
+                transition: opacity .25s ease, width .35s ease, height .35s ease;
+                will-change: left, top, opacity;
             }
 
-            h1 {
-                font-size: 22px;
-            }
-
-            .qr-box {
-                min-height: 240px;
-                padding: 12px;
-            }
-
-            .qr-code {
+            /* 触碰文字时显现并放大 */
+            .cursor-invert.active {
+                opacity: 1;
                 width: 220px;
+                height: 220px;
+            }
+
+            /* 中心实心圆点 — 始终可见 */
+            .cursor-dot {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9999;
+                background: #2a2a2a;
+                transform: translate(-50%, -50%);
+            }
+
+            /* 外围细圆环 */
+            .cursor-ring {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9999;
+                border: 1px solid rgba(0, 0, 0, 0.2);
+                transform: translate(-50%, -50%);
+                transition: width .35s ease, height .35s ease, border-color .25s ease;
+            }
+
+            .cursor-ring.active {
+                width: 220px;
+                height: 220px;
+                border-color: rgba(0, 0, 0, 0.35);
+            }
+
+            /* 二维码卡片 hover 微浮 */
+            .qr-card {
+                transition: transform .4s cubic-bezier(.25, .1, .25, 1),
+                            box-shadow .4s cubic-bezier(.25, .1, .25, 1);
+            }
+
+            .qr-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 6px 28px rgba(0,0,0,.08),
+                            0 14px 48px rgba(0,0,0,.07),
+                            0 24px 84px rgba(0,0,0,.05);
+            }
+        }
+
+        /* —————— 移动端：上下布局 —————— */
+        @media (max-width: 800px) {
+            body { padding: 40px 24px; }
+
+            .top-left-brand {
+                top: 20px;
+                left: 24px;
+                font-size: 11px;
+            }
+
+            .container {
+                flex-direction: column;
+                gap: 48px;
+                text-align: center;
+            }
+
+            .brand {
+                align-items: center;
+                gap: 10px;
+            }
+
+            .brand-logo {
+                font-size: clamp(52px, 14vw, 80px);
+            }
+
+            .brand-tagline {
+                font-size: 14px;
+            }
+
+            .qr-stage {
+                width: min(340px, 80vw);
+                height: min(340px, 80vw);
+            }
+
+            .qr-card {
+                width: min(158px, 42vw);
+                height: min(158px, 42vw);
+                padding: 10px;
+            }
+
+            .qr-expire-hint {
+                font-size: 9px;
+                bottom: 4px;
+            }
+
+            .service-overlay {
+                font-size: 15px;
             }
         }
     </style>
 </head>
 <body>
-<div class="watermark" aria-hidden="true">微信机器人</div>
-<main class="login-card">
-    <h1>WeStart<span class="brand-dot"></span></h1>
-    <p class="description">微信扫码并确认登录，即刻开始对话</p>
-    <div class="qr-box">
-        <img id="qrCode" class="qr-code" src="/wechat/login/qrcode" alt="微信登录二维码">
-        <p id="errorMessage" class="error-message">二维码加载失败，请确认服务正常运行后刷新页面。</p>
-    </div>
-    <p class="tip">二维码过期后，请刷新页面重新获取</p>
-</main>
+<div class="top-left-brand">WeChat ClawBot</div>
+<div class="container">
+    <!-- ===== 左侧：品牌区 ===== -->
+    <section class="brand">
+        <h1 class="brand-logo">Claw<span class="accent">Bot</span></h1>
+        <p class="brand-tagline">与你同行，探索智能的温度，扫码即刻开启对话</p>
+    </section>
+
+    <!-- ===== 右侧：二维码 + 科技装饰 ===== -->
+    <section class="qr-panel">
+        <!-- 添加 service-down 类名即可切换为服务未启动状态 -->
+        <div class="qr-stage">
+
+            <!-- 第 1 层轨道（最外层） -->
+            <div class="orbit-layer layer-1">
+                <div class="orbit orbit-1"></div>
+                <div class="node node-lg node-blue  node-pulse"
+                     style="top:2%; left:32%; animation-delay: 0s;"></div>
+                <div class="node node-sm node-rose"
+                     style="bottom:5%; right:18%;"></div>
+                <div class="node node-md node-stone node-pulse"
+                     style="top:16%; right:3%; animation-delay: .9s;"></div>
+            </div>
+
+            <!-- 第 2 层轨道 -->
+            <div class="orbit-layer layer-2">
+                <div class="orbit orbit-2"></div>
+                <div class="node node-md node-sage  node-pulse"
+                     style="top:5%; right:14%; animation-delay: .4s;"></div>
+                <div class="node node-xs node-lavender"
+                     style="bottom:10%; left:10%;"></div>
+                <div class="node node-sm node-blue node-pulse"
+                     style="top:40%; left:2%; animation-delay: 1.5s;"></div>
+            </div>
+
+            <!-- 第 3 层轨道 -->
+            <div class="orbit-layer layer-3">
+                <div class="orbit orbit-3"></div>
+                <div class="node node-sm node-rose  node-pulse"
+                     style="top:8%; left:22%; animation-delay: .7s;"></div>
+                <div class="node node-md node-stone node-pulse"
+                     style="bottom:6%; right:16%; animation-delay: 2s;"></div>
+                <div class="node node-xs node-sage"
+                     style="top:45%; right:4%;"></div>
+            </div>
+
+            <!-- 第 4 层轨道（最内层） -->
+            <div class="orbit-layer layer-4">
+                <div class="orbit orbit-4"></div>
+                <div class="node node-sm node-lavender node-pulse"
+                     style="top:6%; right:20%; animation-delay: 1.1s;"></div>
+                <div class="node node-xs node-blue"
+                     style="bottom:12%; left:16%;"></div>
+                <div class="node node-md node-stone node-pulse"
+                     style="top:38%; left:3%; animation-delay: 2.5s;"></div>
+            </div>
+
+            <!-- 二维码卡片 -->
+            <div class="qr-card">
+                <img id="qrCode" class="qr-code"
+                     alt="微信登录二维码">
+                <span class="qr-expire-hint">二维码使用后将自动刷新</span>
+                <div class="service-overlay">服务未启动</div>
+                <p id="errorMessage" class="error-message">二维码加载失败，请确认服务正常运行后刷新页面。</p>
+            </div>
+        </div>
+    </section>
+</div>
+
 <script>
     const qrCode = document.getElementById('qrCode');
     const errorMessage = document.getElementById('errorMessage');
+    const sessionIdHeader = 'X-WeChat-Session-Id';
+    const statusPollingInterval = 2000;
+    let qrCodeObjectUrl;
+    let statusTimer;
+    let loadingQrCode = false;
 
     qrCode.addEventListener('error', () => {
         qrCode.style.display = 'none';
-        errorMessage.style.display = 'block';
+        errorMessage.style.display = 'flex';
     });
+
+    qrCode.addEventListener('load', () => {
+        qrCode.style.display = 'block';
+        errorMessage.style.display = 'none';
+    });
+
+    async function loadQrCode() {
+        if (loadingQrCode) return;
+        loadingQrCode = true;
+        clearTimeout(statusTimer);
+
+        try {
+            const response = await fetch('/wechat/login/qrcode', {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const sessionId = response.headers.get(sessionIdHeader);
+            if (!sessionId) throw new Error('二维码响应缺少会话标识');
+
+            const imageBlob = await response.blob();
+            const nextObjectUrl = URL.createObjectURL(imageBlob);
+            if (qrCodeObjectUrl) URL.revokeObjectURL(qrCodeObjectUrl);
+            qrCodeObjectUrl = nextObjectUrl;
+            qrCode.src = nextObjectUrl;
+            scheduleStatusPolling(sessionId);
+        } catch (error) {
+            console.error('微信登录二维码加载失败', error);
+            qrCode.style.display = 'none';
+            errorMessage.style.display = 'flex';
+        } finally {
+            loadingQrCode = false;
+        }
+    }
+
+    function scheduleStatusPolling(sessionId) {
+        statusTimer = setTimeout(() => pollLoginStatus(sessionId), statusPollingInterval);
+    }
+
+    async function pollLoginStatus(sessionId) {
+        try {
+            const response = await fetch(
+                `/wechat/login/status?sessionId=${encodeURIComponent(sessionId)}`,
+                {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const loginStatus = await response.json();
+            if (loginStatus.status === 'LOGGED_IN'
+                || loginStatus.status === 'EXPIRED'
+                || loginStatus.status === 'ERROR') {
+                await loadQrCode();
+                return;
+            }
+        } catch (error) {
+            console.error('微信登录状态查询失败', error);
+        }
+        scheduleStatusPolling(sessionId);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        clearTimeout(statusTimer);
+        if (qrCodeObjectUrl) URL.revokeObjectURL(qrCodeObjectUrl);
+    });
+
+    loadQrCode();
+
+    /* —————— 自定义光标跟随（仅桌面端） —————— */
+    const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    if (isDesktop) {
+        const invert = document.createElement('div');
+        invert.className = 'cursor-invert';
+        const dot = document.createElement('div');
+        dot.className = 'cursor-dot';
+        const ring = document.createElement('div');
+        ring.className = 'cursor-ring';
+        document.body.appendChild(invert);
+        document.body.appendChild(dot);
+        document.body.appendChild(ring);
+
+        function hasText(el) {
+            if (!el || el === document.body || el === document.documentElement) return false;
+            /* 二维码区域不触发反转 */
+            if (el.closest && el.closest('.qr-panel')) return false;
+            /* 直接文本节点 */
+            for (const child of el.childNodes) {
+                if (child.nodeType === 3 && child.textContent.trim().length > 0) return true;
+            }
+            /* 向上查三代 */
+            let p = el.parentElement;
+            for (let i = 0; i < 3 && p && p !== document.body; i++) {
+                if (p.closest && p.closest('.qr-panel')) return false;
+                for (const child of p.childNodes) {
+                    if (child.nodeType === 3 && child.textContent.trim().length > 0) return true;
+                }
+                p = p.parentElement;
+            }
+            return false;
+        }
+
+        let mx = window.innerWidth / 2;
+        let my = window.innerHeight / 2;
+        let cx = mx, cy = my;
+        let overText = false;
+
+        document.addEventListener('mousemove', (e) => {
+            mx = e.clientX;
+            my = e.clientY;
+            overText = hasText(e.target);
+        });
+
+        function animate() {
+            cx += (mx - cx) * 0.18;
+            cy += (my - cy) * 0.18;
+
+            invert.style.left = cx + 'px';
+            invert.style.top  = cy + 'px';
+            ring.style.left   = cx + 'px';
+            ring.style.top    = cy + 'px';
+            dot.style.left    = cx + 'px';
+            dot.style.top     = cy + 'px';
+
+            if (overText) {
+                invert.classList.add('active');
+                ring.classList.add('active');
+                dot.classList.add('active');
+            } else {
+                invert.classList.remove('active');
+                ring.classList.remove('active');
+                dot.classList.remove('active');
+            }
+
+            requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+    }
 </script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 package com.westart.ai.westart.config;
 
+import com.westart.ai.westart.listener.AssistantListener;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
@@ -7,9 +8,8 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Duration;
 import java.util.List;
-
+import java.util.Map;
 
 @Configuration
 public class ModelConfig {
@@ -22,13 +22,14 @@ public class ModelConfig {
      * @return
      */
     @Bean
-    public OpenAiChatModel weChatAssistantModel(){
+    public OpenAiChatModel weChatAssistantModel(
+            AssistantListener assistantListener) {
         return OpenAiChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
                 .modelName("qwen3.7-plus")
-                .timeout(Duration.ofSeconds(120))
-                .listeners(List.of())
+                .customParameters(Map.of("enable_thinking", true))
+                .listeners(List.of(assistantListener))
                 .build();
     }
 
@@ -99,6 +100,19 @@ public class ModelConfig {
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
                 .modelName("text-embedding-v4")
                 .dimension(1024)
+                .build();
+    }
+
+    /**
+     * 提取用户自画像模型
+     * @return
+     */
+    @Bean
+    public QwenChatModel extraProfileModel(){
+        return QwenChatModel.builder()
+                .apiKey(System.getenv("QWEN_API_KEY"))
+                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
+                .modelName("qwen3.5-flash")
                 .build();
     }
 }

@@ -6,7 +6,11 @@ import com.westart.ai.westart.service.tool.ToolRegistry;
 import dev.langchain4j.data.message.Content;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.mcp.McpToolProvider;
-import dev.langchain4j.mcp.client.*;
+import dev.langchain4j.mcp.client.DefaultMcpClient;
+import dev.langchain4j.mcp.client.McpCallContext;
+import dev.langchain4j.mcp.client.McpClient;
+import dev.langchain4j.mcp.client.McpClientListener;
+import dev.langchain4j.mcp.client.McpHeadersSupplier;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
 import dev.langchain4j.service.tool.ToolExecutionResult;
@@ -35,9 +39,11 @@ public class McpConfig {
      * 注册 MCP 工具提供者。
      *
      * @return MCP 工具提供者
-     */
+    */
     @Bean
-    public McpToolProvider mcpToolProvider(List<McpClientListener> clientListeners, ToolRegistry toolRegistry) {
+    public McpToolProvider mcpToolProvider(
+            List<McpClientListener> clientListeners,
+            ToolRegistry toolRegistry) {
         List<McpClient> mcpClients = new ArrayList<>();
         mcpProperties.getServers().forEach((serverKey, serverConfig) -> {
             if (serverConfig == null || !serverConfig.isEnabled()) {
@@ -62,7 +68,7 @@ public class McpConfig {
                         .build();
                 mcpClients.add(mcpClient);
                 toolRegistry.registerMcpClient(mcpClient);
-                log.info("MCP 客户端注册成功,serverKey:{}",serverKey);
+                log.info("MCP客户端注册成功，serverKey={}", serverKey);
             } catch (RuntimeException e) {
                 log.error("MCP 客户端注册失败，serverKey: {}", serverKey, e);
             }
@@ -80,7 +86,8 @@ public class McpConfig {
      * @param serverConfig MCP 服务配置
      * @return MCP 请求头策略
      */
-    private McpHeadersSupplier createHeadersStrategy(McpProperties.ServerConfig serverConfig) {
+    private McpHeadersSupplier createHeadersStrategy(
+            McpProperties.ServerConfig serverConfig) {
         String authType = serverConfig.getAuthType();
         if (authType == null || authType.isBlank()) {
             throw new IllegalArgumentException("MCP authType 不能为空");
@@ -101,8 +108,7 @@ public class McpConfig {
 
             @Override
             public void afterInitialize(McpCallContext context) {
-                log.info("mcp初始化成功");
-                log.info("初始化前invocationContext:{}",context.invocationContext());
+                log.info("MCP初始化成功");
             }
 
             @Override
@@ -112,14 +118,18 @@ public class McpConfig {
             }
 
             @Override
-            public void afterExecuteTool(McpCallContext context, ToolExecutionResult result, Map<String, Object> rawResult) {
+            public void afterExecuteTool(
+                    McpCallContext context,
+                    ToolExecutionResult result,
+                    Map<String, Object> rawResult) {
                 InvocationContext invocationContext = context.invocationContext();
                 List<Content> contents = result.resultContents();
                 StringBuilder stringBuilder = new StringBuilder();
-                for(Content content : contents) {
+                for (Content content : contents) {
                     stringBuilder.append(content);
                 }
-                log.info("工具{}执行完毕,工具执行结果:{}",invocationContext.methodName(),stringBuilder.toString());
+                log.info("工具{}执行完毕，工具执行结果={}",
+                        invocationContext.methodName(), stringBuilder);
             }
         });
         return mcpClientListeners;
