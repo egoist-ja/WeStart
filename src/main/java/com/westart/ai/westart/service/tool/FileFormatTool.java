@@ -83,17 +83,14 @@ public class FileFormatTool {
 
     /** 工具方法。 */
 
-    @Tool(value = "将用户在当前会话中已经上传的文件转换为Word文档并直接发送给用户。"
-            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
-            + "fileKey为[文件ID: xxx]中的xxx，必填。")
-    public String convertToDocx(@ToolMemoryId String userId,
-                                @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
+    @Tool(value = "将用户在当前会话中已经上传的文件转换为Word文档并直接发送给用户。只需要传userId。")
+    public String convertToDocx(@ToolMemoryId String userId) {
         long startTime = System.currentTimeMillis();
-        log.info("[FileFormatTool] convertToDocx 开始执行，userId={}, fileKey={}", userId, fileKey);
+        log.info("[FileFormatTool] convertToDocx 开始执行，userId={}", userId);
         
-        UserFileCache.StoredFile file = UserFileCache.get(fileKey);
+        UserFileCache.StoredFile file = UserFileCache.get(userId);
         if (file == null) {
-            log.warn("[FileFormatTool] 文件不存在或已过期，fileKey={}", fileKey);
+            log.warn("[FileFormatTool] 文件不存在或已过期，userId={}", userId);
             return "错误：文件已过期或不存在，请重新发送文件。";
         }
         
@@ -113,28 +110,25 @@ public class FileFormatTool {
             log.info("[FileFormatTool] 开始发送文件，newName={}", newName);
             client.sendFile(userId, result, newName, null);
             
-            UserFileCache.remove(fileKey);
+            UserFileCache.remove(userId);
             long duration = System.currentTimeMillis() - startTime;
             log.info("[FileFormatTool] convertToDocx 执行成功，耗时={}ms", duration);
             return "已为您将 " + file.fileName() + " 转换为Word文档。";
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("[FileFormatTool] convertToDocx 执行失败，fileKey={}，耗时={}ms", fileKey, duration, e);
+            log.error("[FileFormatTool] convertToDocx 执行失败，userId={}，耗时={}ms", userId, duration, e);
             return "文件转换失败：" + e.getMessage();
         }
     }
 
-    @Tool(value = "将用户在当前会话中已经上传的文档转换为PDF并直接发送给用户。"
-            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
-            + "fileKey为[文件ID: xxx]中的xxx，必填。")
-    public String convertToPdf(@ToolMemoryId String userId,
-                               @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
+    @Tool(value = "将用户在当前会话中已经上传的文档转换为PDF并直接发送给用户。只需要传userId。")
+    public String convertToPdf(@ToolMemoryId String userId) {
         long startTime = System.currentTimeMillis();
-        log.info("[FileFormatTool] convertToPdf 开始执行，userId={}, fileKey={}", userId, fileKey);
+        log.info("[FileFormatTool] convertToPdf 开始执行，userId={}", userId);
         
-        UserFileCache.StoredFile file = UserFileCache.get(fileKey);
+        UserFileCache.StoredFile file = UserFileCache.get(userId);
         if (file == null) {
-            log.warn("[FileFormatTool] 文件不存在或已过期，fileKey={}", fileKey);
+            log.warn("[FileFormatTool] 文件不存在或已过期，userId={}", userId);
             return "错误：文件已过期或不存在，请重新发送文件。";
         }
         
@@ -167,28 +161,25 @@ public class FileFormatTool {
             log.info("[FileFormatTool] 开始发送文件，newName={}", newName);
             client.sendFile(userId, result, newName, null);
             
-            UserFileCache.remove(fileKey);
+            UserFileCache.remove(userId);
             long duration = System.currentTimeMillis() - startTime;
             log.info("[FileFormatTool] convertToPdf 执行成功，耗时={}ms", duration);
             return "已为您将 " + file.fileName() + " 转换为PDF。";
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("[FileFormatTool] convertToPdf 执行失败，fileKey={}，耗时={}ms", fileKey, duration, e);
+            log.error("[FileFormatTool] convertToPdf 执行失败，userId={}，耗时={}ms", userId, duration, e);
             return "文件转换失败：" + e.getMessage();
         }
     }
 
-    @Tool(value = "提取用户在当前会话中已经上传文件的纯文本内容，并以TXT文件直接发送给用户。"
-            + "本工具只处理带有[文件ID]的已上传文件，不接收Base64数据。"
-            + "fileKey为[文件ID: xxx]中的xxx，必填。")
-    public String extractText(@ToolMemoryId String userId,
-                              @P("[文件ID]中冒号后面的值，例如用户消息是[文件ID: abc]，则传abc") String fileKey) {
+    @Tool(value = "提取用户在当前会话中已经上传文件的纯文本内容，并以TXT文件直接发送给用户。只需要传userId。")
+    public String extractText(@ToolMemoryId String userId) {
         long startTime = System.currentTimeMillis();
-        log.info("[FileFormatTool] extractText 开始执行，userId={}, fileKey={}", userId, fileKey);
+        log.info("[FileFormatTool] extractText 开始执行，userId={}", userId);
         
-        UserFileCache.StoredFile file = UserFileCache.get(fileKey);
+        UserFileCache.StoredFile file = UserFileCache.get(userId);
         if (file == null) {
-            log.warn("[FileFormatTool] 文件不存在或已过期，fileKey={}", fileKey);
+            log.warn("[FileFormatTool] 文件不存在或已过期，userId={}", userId);
             return "错误：文件已过期或不存在，请重新发送文件。";
         }
         
@@ -213,7 +204,7 @@ public class FileFormatTool {
             return "已提取 " + file.fileName() + " 的文本内容并发送。";
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            log.error("[FileFormatTool] extractText 执行失败，fileKey={}，耗时={}ms", fileKey, duration, e);
+            log.error("[FileFormatTool] extractText 执行失败，userId={}，耗时={}ms", userId, duration, e);
             return "文件文本提取失败：" + e.getMessage();
         }
     }

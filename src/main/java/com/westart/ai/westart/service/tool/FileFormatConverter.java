@@ -2,6 +2,7 @@ package com.westart.ai.westart.service.tool;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -9,13 +10,8 @@ import okhttp3.Response;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.poi.xwpf.usermodel.BodyElementType;
-import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFTable;
-import org.apache.poi.xwpf.usermodel.XWPFTableCell;
-import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.jcodec.codecs.aac.AACDecoder;
 import org.jcodec.common.DemuxerTrack;
 import org.jcodec.common.io.FileChannelWrapper;
@@ -32,7 +28,6 @@ import javax.sound.sampled.AudioSystem;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -44,28 +39,43 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 文件格式转换引擎，提供音频解码、文档格式互转和 Markdown 渲染能力。
+ *
+ * <p>转换流水线分两条独立通道：</p>
+ * <ul>
+ *   <li><b>文档通道</b>：任意格式文件 → toMarkdown（CLI 提取） → Markdown → 目标格式</li>
+ *   <li><b>音频通道</b>：MP3/M4A → PCM → WAV，不经过 MarkItDown</li>
+ * </ul>
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class FileFormatConverter {
-    
+
     private static final File TEMP_DIR = new File(
             System.getProperty("java.io.tmpdir"), "westart_convert");
 
+    /** HTTP 客户端，用于调用 UAPI 的 Markdown→PDF/HTML 接口 */
     private final OkHttpClient okHttpClient;
+
+    /** JSON 序列化/反序列化 */
     private final ObjectMapper objectMapper;
 
     static {
         TEMP_DIR.mkdirs();
     }
 
+    // ====================  音频通道：MP3/M4A 解码为 WAV  ====================
 
     /**
-     * 音频转换
-     * @param srcData
-     * @param srcMime
-     * @return
-     * @throws IOException
+     * 将音频数据解码为 WAV 格式。
+     *
+     * <p>支持的输入格式：WAV（直通）、MP3、M4A。</p>
+     *
+     * @param srcData 音频文件二进制数据
+     * @param srcMime 源 MIME 类型（audio/wav、audio/mpeg、audio/mp4）
+     * @return WAV 格式的 PCM 数据
      */
     public byte[] toWav(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
@@ -77,66 +87,106 @@ public class FileFormatConverter {
         };
     }
 
-    /** 文档转换。 */
+    // ====================  文档通道：任意文件 → Markdown → 目标格式  ====================
 
+    /**
+     * 将任意支持格式的文件转为 PDF。
+     *
+     * <p>{@code text/plain} 和 {@code text/markdown} 直接调用 UAPI 渲染；
+     * 其他格式先通过 {@code toMarkdown} 提取 Markdown 内容。</p>
+     *
+     * @param srcData 文件二进制数据
+     * @param srcMime 源 MIME 类型
+     * @return PDF 字节数组
+     */
     public byte[] toPdf(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
-            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> {
-                File tmp = null;
-                try {
-                    tmp = saveTemp(srcData, ".docx");
-                    String markdown;
-                    try (FileInputStream fis = new FileInputStream(tmp)) {
-                        markdown = docxToMarkdown(fis);
-                    }
-                    yield callMarkdownToPdfApi(markdown, "github", "A4");
-                } catch (IOException e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new IOException("Word转PDF失败", e);
-                } finally {
-                    deleteFile(tmp);
+            case "text/plain", "text/markdown" ->
+                    callMarkdownToPdfApi(decodeText(srcData), "github", "A4");
+            default -> {
+                String markdown = toMarkdown(srcData, mimeToExtension(srcMime));
+                if (markdown == null) markdown = extractTextFallback(srcData, srcMime);
+                if (markdown == null) {
+                    throw new IOException("无法转换 " + srcMime + " 为 PDF（文件提取失败）");
                 }
+                yield callMarkdownToPdfApi(markdown, "github", "A4");
             }
-            case "text/plain", "text/markdown" -> callMarkdownToPdfApi(decodeText(srcData), "github", "A4");
-            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 DOCX / TXT / Markdown）");
         };
     }
 
+    /**
+     * 将任意支持格式的文件转为 DOCX。
+     *
+     * <p>Markdown 输入保留标题样式；纯文本按行构建段落；
+     * 其他格式先通过 {@code toMarkdown} 提取 Markdown。</p>
+     *
+     * @param srcData 文件二进制数据
+     * @param srcMime 源 MIME 类型
+     * @return DOCX 字节数组
+     */
     public byte[] toDocx(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
-            case "application/pdf" -> pdfToDocx(srcData);
-            case "text/markdown" -> mdToDocx(decodeText(srcData));
             case "text/plain" -> txtToDocx(decodeText(srcData));
-            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 PDF / Markdown / TXT）");
+            case "text/markdown" -> mdToDocx(decodeText(srcData));
+            default -> {
+                String markdown = toMarkdown(srcData, mimeToExtension(srcMime));
+                if (markdown == null) markdown = extractTextFallback(srcData, srcMime);
+                if (markdown == null) {
+                    throw new IOException("无法转换 " + srcMime + " 为 DOCX（文件提取失败）");
+                }
+                yield txtToDocx(markdown);
+            }
         };
     }
 
+    /**
+     * 从任意支持格式的文件中提取纯文本。
+     *
+     * <p>非文本格式先通过 {@code toMarkdown} 提取 Markdown，再清洗标签语法。
+     * 文本格式直接解码返回。</p>
+     *
+     * @param srcData 文件二进制数据
+     * @param srcMime 源 MIME 类型
+     * @return 纯文本内容
+     */
     public String toTxt(byte[] srcData, String srcMime) throws IOException {
         if (srcData == null || srcData.length == 0 || srcMime == null) return null;
         return switch (srcMime) {
             case "text/plain" -> decodeText(srcData);
             case "text/markdown" -> mdToPlainText(decodeText(srcData));
-            case "application/pdf" -> extractPdfText(srcData);
-            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
-                    extractDocxText(srcData);
-            default -> throw new IOException("不支持的格式: " + srcMime + "（仅支持 TXT / Markdown / PDF / DOCX）");
+            default -> {
+                String markdown = toMarkdown(srcData, mimeToExtension(srcMime));
+                if (markdown == null) markdown = extractTextFallback(srcData, srcMime);
+                if (markdown == null) {
+                    throw new IOException("无法提取 " + srcMime + " 的文本");
+                }
+                yield mdToPlainText(markdown);
+            }
         };
     }
 
-    /** uapis.cn API 调用。 */
+    // ====================  Markdown 渲染：调用 UAPI 外部服务  ====================
 
+    /**
+     * 调用 UAPI 将 Markdown 文本渲染为 PDF 文件。
+     *
+     * @param markdown  Markdown 文本
+     * @param theme     渲染主题（github / minimal / light / dark）
+     * @param paperSize 纸张大小（A4 / Letter）
+     * @return PDF 字节数组
+     */
     public byte[] callMarkdownToPdfApi(String markdown, String theme, String paperSize) throws IOException {
-        String apiKey = System.getenv("UAPI_KEY");
+        String apiKey = System.getenv("UAPI_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
             throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "theme", theme, "paper_size", paperSize));
         RequestBody body = RequestBody.create(
-                requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+                requestBodyJson.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                MediaType.get("application/json; charset=utf-8"));
         Request request = new Request.Builder()
                 .url("https://uapis.cn/api/v1/text/markdown-to-pdf")
                 .header("Authorization", "Bearer " + apiKey)
@@ -153,15 +203,22 @@ public class FileFormatConverter {
         }
     }
 
+    /**
+     * 调用 UAPI 将 Markdown 文本渲染为 HTML。
+     *
+     * @param markdown     Markdown 文本
+     * @param completePage {@code true} 返回完整 HTML 页面，{@code false} 仅返回片段
+     * @return HTML 内容
+     */
     public String callMarkdownToHtmlApi(String markdown, boolean completePage) throws IOException {
-        String apiKey = System.getenv("UAPI_KEY");
+        String apiKey = System.getenv("UAPI_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
             throw new IOException("UAPI_KEY 未设置，请注册 https://uapis.cn 获取");
         }
         String requestBodyJson = objectMapper.writeValueAsString(
                 java.util.Map.of("text", markdown, "format", completePage ? "html" : "json"));
         RequestBody body = RequestBody.create(
-                requestBodyJson, okhttp3.MediaType.get("application/json; charset=utf-8"));
+                requestBodyJson, MediaType.get("application/json; charset=utf-8"));
         Request request = new Request.Builder()
                 .url("https://uapis.cn/api/v1/text/markdown-to-html")
                 .header("Authorization", "Bearer " + apiKey)
@@ -179,57 +236,98 @@ public class FileFormatConverter {
         }
     }
 
-    /** 文档文本提取。 */
+    // ====================  Markdown 纯文本清洗  ====================
 
-    private String extractDocxText(byte[] fileData) throws IOException {
-        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileData))) {
-            StringBuilder sb = new StringBuilder();
-            for (IBodyElement elem : doc.getBodyElements()) {
-                if (elem.getElementType() == BodyElementType.PARAGRAPH) {
-                    String text = ((XWPFParagraph) elem).getText().trim();
-                    if (!text.isEmpty()) sb.append(text).append("\n");
-                } else if (elem.getElementType() == BodyElementType.TABLE) {
-                    for (XWPFTableRow row : ((XWPFTable) elem).getRows()) {
-                        List<String> cells = new ArrayList<>();
-                        for (XWPFTableCell cell : row.getTableCells()) {
-                            cells.add(cell.getText().trim());
-                        }
-                        sb.append(String.join(" | ", cells)).append("\n");
-                    }
-                }
-            }
-            String text = sb.toString().trim();
-            return text.isEmpty() ? "文档中未提取到文本内容" : text;
-        }
+    /**
+     * 去除 Markdown 语法标签，提取纯文本。
+     * 移除代码块、标题标记、加粗/斜体、行内代码、链接和图片语法。
+     */
+    private String mdToPlainText(String markdown) {
+        return markdown.lines()
+                .filter(l -> !l.trim().startsWith("```"))                  // 跳过代码块界定符
+                .map(l -> l.replaceAll("^#{1,6}\\s+", "")                   // 移除标题 #
+                        .replaceAll("^[-*]\\s+", "")                        // 移除列表标记
+                        .replaceAll("\\*\\*(.*?)\\*\\*", "$1")              // 粗体
+                        .replaceAll("\\*(.*?)\\*", "$1")                     // 斜体
+                        .replaceAll("`(.*?)`", "$1")                         // 行内代码
+                        .replaceAll("!\\[.*?\\]\\(.*?\\)", "")               // 图片
+                        .replaceAll("\\[(.*?)\\]\\(.*?\\)", "$1")            // 链接
+                        .strip())
+                .filter(l -> !l.isEmpty())
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse("");
     }
 
-    private String extractPdfText(byte[] fileData) throws IOException {
-        File tmp = null;
+    // ====================  文本编码检测  ====================
+
+    /**
+     * 解码文本文件字节，自动检测 UTF-8 / GBK 编码。
+     * UTF-8 解码出现替换字符（U+FFFD）时自动回退到 GBK。
+     */
+    public String decodeText(byte[] data) {
+        String text = new String(data, java.nio.charset.StandardCharsets.UTF_8);
+        if (text.contains("\uFFFD")) {
+            text = new String(data, Charset.forName("GBK"));
+        }
+        return text;
+    }
+
+    // ====================  文本/Markdown → DOCX  ====================
+
+    /**
+     * 纯文本转 DOCX：每行一个段落。
+     */
+    private byte[] txtToDocx(String text) throws IOException {
         try {
-            tmp = saveTemp(fileData, ".pdf");
-            try (PDDocument doc = Loader.loadPDF(tmp)) {
-                if (doc.isEncrypted()) {
-                    throw new IOException("PDF 已加密，无法提取文本。");
-                }
-                PDFTextStripper stripper = new PDFTextStripper();
-                stripper.setSortByPosition(true);
-                stripper.setWordSeparator(" ");
-                String text = stripper.getText(doc).trim();
-                if (text.isEmpty()) {
-                    throw new IOException("PDF 无法提取文本（可能为纯图片、扫描件或特殊格式）");
-                }
-                return text;
+            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
+                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
+            for (String line : text.split("\\r?\\n")) {
+                if (line.trim().isEmpty()) continue;
+                wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
             }
-        } catch (IOException e) {
-            throw e;
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            wordPkg.save(baos);
+            return baos.toByteArray();
         } catch (Exception e) {
-            throw new IOException("PDF 解析失败", e);
-        } finally {
-            deleteFile(tmp);
+            throw new IOException("TXT转Word失败", e);
         }
     }
 
-    /** 音频解码。 */
+    /**
+     * Markdown 转 DOCX：识别标题和列表语法，跳过代码块。
+     */
+    private byte[] mdToDocx(String markdown) throws IOException {
+        try {
+            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
+                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
+            String[] lines = markdown.split("\\r?\\n");
+            boolean inCodeBlock = false;
+            for (String line : lines) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("```")) { inCodeBlock = !inCodeBlock; continue; }      // 代码块开关
+                if (inCodeBlock || trimmed.isEmpty()) continue;                               // 跳过代码块内容和空行
+                java.util.regex.Matcher headingMatcher =
+                        java.util.regex.Pattern.compile("^(#{1,6})\\s+(.*)").matcher(trimmed);
+                if (headingMatcher.matches()) {
+                    wordPkg.getMainDocumentPart().addParagraphOfText(headingMatcher.group(2)); // 标题
+                    continue;
+                }
+                if (trimmed.matches("^[-*]\\s+.*")) {
+                    wordPkg.getMainDocumentPart().addParagraphOfText(
+                            trimmed.replaceAll("^[-*]\\s+", ""));                              // 列表项
+                    continue;
+                }
+                wordPkg.getMainDocumentPart().addParagraphOfText(trimmed);                     // 普通段落
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            wordPkg.save(baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new IOException("Markdown转Word失败", e);
+        }
+    }
+
+    // ==================== 音频解码 ====================
 
     private byte[] decodeMp3ToPcm(byte[] mp3Data) throws IOException {
         try (ByteArrayInputStream bais = new ByteArrayInputStream(mp3Data);
@@ -286,7 +384,7 @@ public class FileFormatConverter {
         pcm.write(b);
     }
 
-    /** WAV 封装。 */
+    // ==================== WAV 封装 ====================
 
     private byte[] writeWav(byte[] pcm, int sampleRate) throws IOException {
         int channels = 1, bits = 16;
@@ -326,148 +424,150 @@ public class FileFormatConverter {
         out.write((v >> 8) & 0xFF);
     }
 
-    /** TXT / MD 与 DOCX 互转。 */
+    // ==================== MIME → 文件扩展名映射 ====================
 
-    private byte[] pdfToDocx(byte[] srcData) throws IOException {
+    private static String mimeToExtension(String mime) {
+        if (mime == null) return ".bin";
+        return switch (mime) {
+            case "application/pdf" -> ".pdf";
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> ".docx";
+            case "application/vnd.ms-powerpoint" -> ".ppt";
+            case "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> ".pptx";
+            case "application/vnd.ms-excel" -> ".xls";
+            case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" -> ".xlsx";
+            case "text/html" -> ".html";
+            case "text/csv" -> ".csv";
+            case "application/json" -> ".json";
+            case "text/xml", "application/xml" -> ".xml";
+            case "application/epub+zip" -> ".epub";
+            case "image/png" -> ".png";
+            case "image/jpeg" -> ".jpg";
+            default -> ".bin";
+        };
+    }
+
+    // ==================== MarkItDown 文件→Markdown（Docker封装） ====================
+
+    private String toMarkdown(byte[] fileData, String suffix) {
+        if (fileData == null || fileData.length == 0) return null;
+        if (!markitdownReady) {
+            synchronized (FileFormatConverter.class) {
+                if (!markitdownReady) {
+                    markitdownReady = ensureMarkitdownImage();
+                }
+            }
+        }
+        if (!markitdownReady) {
+            log.debug("markitdown Docker 镜像不可用，跳过");
+            return null;
+        }
         File tmp = null;
         try {
-            tmp = saveTemp(srcData, ".pdf");
-            try (PDDocument doc = Loader.loadPDF(tmp)) {
-                PDFTextStripper stripper = new PDFTextStripper();
-                stripper.setSortByPosition(true);
-                stripper.setWordSeparator(" ");
-                String text = stripper.getText(doc);
-                org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
-                        org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
-                for (String line : text.split("\\r?\\n")) {
-                    if (line.trim().isEmpty()) continue;
-                    wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
-                }
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                wordPkg.save(baos);
-                return baos.toByteArray();
+            tmp = saveTemp(fileData, suffix);
+            String inContainer = "/tmp/input" + suffix;
+            ProcessBuilder pb = new ProcessBuilder(
+                    "docker", "run", "--rm", "-v",
+                    tmp.getAbsolutePath() + ":" + inContainer,
+                    "markitdown:latest",
+                    "markitdown", inContainer);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            String output = new String(process.getInputStream().readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                log.warn("markitdown Docker 执行失败，exitCode={}，输出={}", exitCode,
+                        output.length() > 500 ? output.substring(0, 500) : output);
+                return null;
             }
-        } catch (IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException("PDF转Word失败", e);
+            return output.strip();
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            log.debug("markitdown Docker 异常: {}", e.getMessage());
+            return null;
         } finally {
             deleteFile(tmp);
         }
     }
 
-    private byte[] txtToDocx(String text) throws IOException {
+    private static volatile boolean markitdownReady;
+
+    private static boolean ensureMarkitdownImage() {
         try {
-            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
-                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
-            for (String line : text.split("\\r?\\n")) {
-                if (line.trim().isEmpty()) continue;
-                wordPkg.getMainDocumentPart().addParagraphOfText(line.trim());
+            ProcessBuilder pb = new ProcessBuilder(
+                    "docker", "image", "inspect", "markitdown:latest");
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            if (p.waitFor() == 0) {
+                log.info("markitdown Docker 镜像已存在");
+                return true;
             }
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            wordPkg.save(baos);
-            return baos.toByteArray();
-        } catch (Exception e) {
-            throw new IOException("TXT转Word失败", e);
-        }
-    }
+        } catch (Exception ignored) {}
 
-    private byte[] mdToDocx(String markdown) throws IOException {
+        log.info("markitdown Docker 镜像不存在，开始自动构建...");
         try {
-            org.docx4j.openpackaging.packages.WordprocessingMLPackage wordPkg =
-                    org.docx4j.openpackaging.packages.WordprocessingMLPackage.createPackage();
-            String[] lines = markdown.split("\\r?\\n");
-            boolean inCodeBlock = false;
-            for (String line : lines) {
-                String trimmed = line.trim();
-                if (trimmed.startsWith("```")) { inCodeBlock = !inCodeBlock; continue; }
-                if (inCodeBlock || trimmed.isEmpty()) continue;
-                java.util.regex.Matcher headingMatcher =
-                        java.util.regex.Pattern.compile("^(#{1,6})\\s+(.*)").matcher(trimmed);
-                if (headingMatcher.matches()) {
-                    wordPkg.getMainDocumentPart().addParagraphOfText(headingMatcher.group(2));
-                    continue;
-                }
-                if (trimmed.matches("^[-*]\\s+.*")) {
-                    wordPkg.getMainDocumentPart().addParagraphOfText(trimmed.replaceAll("^[-*]\\s+", ""));
-                    continue;
-                }
-                wordPkg.getMainDocumentPart().addParagraphOfText(trimmed);
+            String dockerfile = FileFormatConverter.class.getClassLoader()
+                    .getResource("markitdown.Dockerfile").getPath();
+            ProcessBuilder pb = new ProcessBuilder(
+                    "docker", "build", "-t", "markitdown:latest", "-f", dockerfile, ".");
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            String output = new String(p.getInputStream().readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            if (p.waitFor() == 0) {
+                log.info("markitdown Docker 镜像构建成功");
+                return true;
             }
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            wordPkg.save(baos);
-            return baos.toByteArray();
+            log.error("markitdown Docker 镜像构建失败: {}", output);
         } catch (Exception e) {
-            throw new IOException("Markdown转Word失败", e);
+            log.error("markitdown Docker 镜像构建异常", e);
+        }
+        return false;
+    }
+
+    // ====================  Java 兜底：DOCX/PDF 文本提取  ====================
+
+    private String extractTextFallback(byte[] data, String mime) {
+        try {
+            return switch (mime) {
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                        extractDocxText(data);
+                case "application/pdf" -> extractPdfText(data);
+                default -> null;
+            };
+        } catch (Exception e) {
+            log.warn("Java 兜底提取失败，mime={}", mime, e);
+            return null;
         }
     }
 
-    public String decodeText(byte[] data) {
-        String text = new String(data, java.nio.charset.StandardCharsets.UTF_8);
-        if (text.contains("\uFFFD")) {
-            text = new String(data, Charset.forName("GBK"));
-        }
-        return text;
-    }
-
-    private String mdToPlainText(String markdown) {
-        return markdown.lines()
-                .filter(l -> !l.trim().startsWith("```"))
-                .map(l -> l.replaceAll("^#{1,6}\\s+", "")
-                        .replaceAll("^[-*]\\s+", "")
-                        .replaceAll("\\*\\*(.*?)\\*\\*", "$1")
-                        .replaceAll("\\*(.*?)\\*", "$1")
-                        .replaceAll("`(.*?)`", "$1")
-                        .replaceAll("!\\[.*?\\]\\(.*?\\)", "")
-                        .replaceAll("\\[(.*?)\\]\\(.*?\\)", "$1")
-                        .strip())
-                .filter(l -> !l.isEmpty())
-                .reduce((a, b) -> a + "\n" + b)
-                .orElse("");
-    }
-
-    private String docxToMarkdown(FileInputStream docxStream) throws IOException {
-        XWPFDocument doc = new XWPFDocument(docxStream);
-        StringBuilder md = new StringBuilder();
-        for (IBodyElement elem : doc.getBodyElements()) {
-            if (elem.getElementType() == BodyElementType.PARAGRAPH) {
-                XWPFParagraph p = (XWPFParagraph) elem;
+    private String extractDocxText(byte[] fileData) throws IOException {
+        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileData))) {
+            StringBuilder sb = new StringBuilder();
+            for (XWPFParagraph p : doc.getParagraphs()) {
                 String text = p.getText().trim();
-                if (text.isEmpty()) { md.append("\n"); continue; }
-                if (p.getStyleID() != null && p.getStyleID().startsWith("Heading")) {
-                    int level = 1;
-                    try { level = Integer.parseInt(p.getStyleID().replace("Heading", "")); } catch (Exception ignored) {}
-                    if (level < 1) level = 1;
-                    if (level > 6) level = 6;
-                    md.append("#".repeat(level)).append(" ").append(text).append("\n\n");
-                } else {
-                    md.append(text).append("\n\n");
-                }
-            } else if (elem.getElementType() == BodyElementType.TABLE) {
-                XWPFTable t = (XWPFTable) elem;
-                List<XWPFTableRow> rows = t.getRows();
-                if (rows.isEmpty()) continue;
-                boolean headerWritten = false;
-                for (XWPFTableRow row : rows) {
-                    List<String> cells = new ArrayList<>();
-                    for (XWPFTableCell cell : row.getTableCells()) {
-                        cells.add(cell.getText().trim().replace("\n", " "));
-                    }
-                    md.append("| ").append(String.join(" | ", cells)).append(" |\n");
-                    if (!headerWritten) {
-                        List<String> sep = new ArrayList<>();
-                        for (int ci = 0; ci < cells.size(); ci++) sep.add("---");
-                        md.append("| ").append(String.join(" | ", sep)).append(" |\n");
-                        headerWritten = true;
-                    }
-                }
-                md.append("\n");
+                if (!text.isEmpty()) sb.append(text).append("\n");
             }
+            return sb.toString().trim();
         }
-        return md.toString();
     }
 
-    /** 临时文件管理。 */
+    private String extractPdfText(byte[] fileData) throws IOException {
+        File tmp = null;
+        try {
+            tmp = saveTemp(fileData, ".pdf");
+            try (PDDocument doc = Loader.loadPDF(tmp)) {
+                if (doc.isEncrypted()) throw new IOException("PDF 已加密");
+                PDFTextStripper stripper = new PDFTextStripper();
+                stripper.setSortByPosition(true);
+                return stripper.getText(doc).trim();
+            }
+        } finally {
+            deleteFile(tmp);
+        }
+    }
+
+    // ==================== 临时文件管理 ====================
 
     private File saveTemp(byte[] data, String suffix) throws IOException {
         File f = new File(TEMP_DIR, UUID.randomUUID().toString() + suffix);

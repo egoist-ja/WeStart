@@ -3,11 +3,11 @@ spring:
     name: westart
   data:
     redis:
-      url: redis://127.0.0.1:6379
+      url: redis://100.105.10.6:6379
   datasource:
-    url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
-    username: root
-    password: ${PASSWORD}
+    url: jdbc:mysql://100.105.10.6:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: westart
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   threads:
     virtual:
@@ -21,7 +21,7 @@ spring:
       mail:
         smtp:
           auth: true
-          starttls:
+          ssl:
             enable: true
           connectiontimeout: 10000
           timeout: 10000
@@ -66,8 +66,8 @@ mcp:
       url: https://flyai.open.fliggy.com/mcp
       auth-type: flyai
       api-key: ${FLYAI_API_KEY}
-      log-requests: false
-      log-responses: false
+      log-requests: true
+      log-responses: true
 
     luckin:
       name: 瑞幸
