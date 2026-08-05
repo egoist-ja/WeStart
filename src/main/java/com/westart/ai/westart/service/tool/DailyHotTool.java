@@ -2,8 +2,10 @@ package com.westart.ai.westart.service.tool;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.util.ByteArrayDataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
@@ -11,43 +13,30 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.util.Base64;
+
 /**
- * 邮件发送工具，只负责将给定的内容以 HTML 格式发送到指定邮箱。
- *
- * <p>邮件主题和正文内容由大模型根据用户需求生成后传入。</p>
+ * 邮件发送工具，支持 HTML/纯文本两种格式，支持 Base64 附件。
  */
 @Service("dailyHotTool")
 @RequiredArgsConstructor
 @Slf4j
 public class DailyHotTool {
 
-    /** Spring 邮件发送器 */
     private final JavaMailSender mailSender;
-
-    /** 用于读取邮件服务的配置信息 */
     private final Environment environment;
 
-    /**
-     * 发送 HTML 格式邮件到指定邮箱。
-     *
-     * <p>三个参数均由大模型根据用户对话自动填充，本工具不自行生成内容。</p>
-     *
-     * @param toEmail 收件邮箱地址
-     * @param subject 邮件主题，作为 HTML 页面的标题
-     * @param content 邮件正文（纯文本），内部会按换行转为 HTML 段落
-     * @return 操作结果提示
-     */
-    @Tool(value = "发送HTML邮件到指定邮箱。subject为邮件主题，content为邮件正文，toEmail为收件邮箱，均为必填。"
-            + "邮件内容由你根据用户需求自行组织，不要编造信息。")
+    @Tool(value = "发送HTML或纯文本邮件。isHtml为true时发送HTML格式，false时发送纯文本。所有参数必填。")
     public String sendEmail(
             @P("收件邮箱地址") String toEmail,
             @P("邮件主题") String subject,
-            @P("邮件正文内容，应为纯文本") String content) {
+            @P("邮件正文内容") String content,
+            @P("是否HTML格式，true为HTML，false为纯文本") boolean isHtml) {
         long startTime = System.currentTimeMillis();
-        log.info("[DailyHotTool] 开始执行，toEmail={}, subject={}", toEmail, subject);
+        log.info("[DailyHotTool] 开始执行，toEmail={}, isHtml={}", toEmail, isHtml);
 
         try {
-            sendHtmlEmail(toEmail, subject, content);
+            sendMail(toEmail, subject, content, isHtml);
             long totalDuration = System.currentTimeMillis() - startTime;
             log.info("[DailyHotTool] 执行成功，总耗时={}ms", totalDuration);
             return "邮件已发送至 " + toEmail;
@@ -58,45 +47,91 @@ public class DailyHotTool {
         }
     }
 
-    /**
-     * 构建 HTML 邮件并通过 Spring Mail 发送。
-     *
-     * <p>纯文本 content 中的换行符会被转为 {@code <br>}，嵌套在预设样式中。</p>
-     *
-     * @param to      收件邮箱
-     * @param subject 邮件主题
-     * @param content 邮件正文（纯文本）
-     * @throws RuntimeException 邮件服务未配置或 SMTP 发送失败
-     */
-    private void sendHtmlEmail(String to, String subject, String content) {
-        // 校验 SMTP 配置是否存在
+    @Tool(value = "发送携带附件的邮件（HTML或纯文本）。attachmentBase64为文件Base64编码，attachmentName为文件名含扩展名。所有参数必填。")
+    public String sendEmailWithAttachment(
+            @P("收件邮箱地址") String toEmail,
+            @P("邮件主题") String subject,
+            @P("邮件正文内容") String content,
+            @P("是否HTML格式") boolean isHtml,
+            @P("附件的Base64编码数据") String attachmentBase64,
+            @P("附件文件名，含扩展名如 report.pdf") String attachmentName) {
+        long startTime = System.currentTimeMillis();
+        log.info("[DailyHotTool] 带附件发送，toEmail={}, isHtml={}, attach={}", toEmail, isHtml, attachmentName);
+
+        try {
+            sendMailWithAttachment(toEmail, subject, content, isHtml, attachmentBase64, attachmentName);
+            long totalDuration = System.currentTimeMillis() - startTime;
+            log.info("[DailyHotTool] 带附件发送成功，总耗时={}ms", totalDuration);
+            return "带附件的邮件已发送至  " + toEmail;
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("[DailyHotTool] 带附件发送失败，toEmail={}，耗时={}ms", toEmail, duration, e);
+            return "邮件发送失败，请稍后重试。";
+        }
+    }
+
+    private void sendMail(String to, String subject, String content, boolean isHtml) {
         String mailHost = environment.getProperty("spring.mail.host", "");
         String mailUsername = environment.getProperty("spring.mail.username", "");
         if (mailHost.isBlank() || mailUsername.isBlank()) {
-            log.error("邮件发送失败，邮件服务未配置，MAIL_HOST={}，MAIL_USERNAME={}", mailHost, mailUsername);
+            log.error("邮件发送失败，邮件服务未配置");
             throw new RuntimeException("邮件发送失败：邮件服务未配置，请稍后重试。");
         }
-
         try {
-            // 构建 MIME 邮件（true = multipart，支持内嵌资源）
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, isHtml, "UTF-8");
+            helper.setFrom(mailUsername);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            if (isHtml) {
+                helper.setText("<html><body style='font-family: Microsoft YaHei, sans-serif; padding: 20px;'>"
+                        + "<h3>" + subject + "</h3>"
+                        + "<div style='line-height: 1.8;'>"
+                        + content.replace("\n", "<br>")
+                        + "</div></body></html>", true);
+            } else {
+                helper.setText(content);
+            }
+            mailSender.send(message);
+            log.debug("[DailyHotTool] sendMail 完成");
+        } catch (MessagingException e) {
+            log.error("[DailyHotTool] 邮件发送失败，to={}", to, e);
+            throw new RuntimeException("邮件发送失败，请稍后重试。", e);
+        }
+    }
+
+    private void sendMailWithAttachment(
+            String to, String subject, String content, boolean isHtml,
+            String attachmentBase64, String attachmentName) {
+        String mailHost = environment.getProperty("spring.mail.host", "");
+        String mailUsername = environment.getProperty("spring.mail.username", "");
+        if (mailHost.isBlank() || mailUsername.isBlank()) {
+            log.error("邮件发送失败，邮件服务未配置");
+            throw new RuntimeException("邮件发送失败：邮件服务未配置，请稍后重试。");
+        }
+        try {
+            byte[] fileData = Base64.getDecoder().decode(attachmentBase64);
+            DataSource dataSource = new ByteArrayDataSource(fileData, "application/octet-stream");
+
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(mailUsername);
             helper.setTo(to);
             helper.setSubject(subject);
-
-            // 将纯文本拼为 HTML（换行 → <br>，套字体和间距样式）
-            String html = "<html><body style='font-family: Microsoft YaHei, sans-serif; padding: 20px;'>"
-                    + "<h3>" + subject + "</h3>"
-                    + "<div style='line-height: 1.8;'>"
-                    + content.replace("\n", "<br>")
-                    + "</div></body></html>";
-            helper.setText(html, true);  // true = HTML 模式，非纯文本
-
+            if (isHtml) {
+                helper.setText("<html><body style='font-family: Microsoft YaHei, sans-serif; padding: 20px;'>"
+                        + "<h3>" + subject + "</h3>"
+                        + "<div style='line-height: 1.8;'>"
+                        + content.replace("\n", "<br>")
+                        + "</div></body></html>", true);
+            } else {
+                helper.setText(content);
+            }
+            helper.addAttachment(attachmentName, dataSource);
             mailSender.send(message);
-            log.debug("[DailyHotTool] sendHtmlEmail 完成");
+            log.debug("[DailyHotTool] 带附件发送完成");
         } catch (MessagingException e) {
-            log.error("[DailyHotTool] 邮件发送失败，to={}, subject={}", to, subject, e);
+            log.error("[DailyHotTool] 邮件发送失败，to={}", to, e);
             throw new RuntimeException("邮件发送失败，请稍后重试。", e);
         }
     }

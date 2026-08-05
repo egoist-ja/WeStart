@@ -22,7 +22,7 @@ import java.util.Optional;
 @Slf4j
 public class FileFormatTool {
 
-    /** 单文件最大 50MB */
+    /** 单文件最大 50MB  */
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
 
     /** 文件格式转换引擎，负责实际的转换逻辑 */
