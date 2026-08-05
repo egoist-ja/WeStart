@@ -2,6 +2,8 @@ package com.westart.ai.westart.service.tool;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.agent.tool.ToolMemoryId;
+import com.westart.ai.westart.util.UserFileCache;
 import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -94,6 +96,27 @@ public class DailyHotTool {
             log.error("[DailyHotTool] 带附件发送失败，toEmail={}，耗时={}ms", toEmail, duration, e);
             return "邮件发送失败，请稍后重试。";
         }
+    }
+
+    /**
+     * 将用户在当前会话中上传的文件作为附件发送到指定邮箱（HTML 或纯文本）。
+     *
+     * <p>直接从 {@link UserFileCache} 读取缓存文件，无需传入 Base64 数据。</p>
+     */
+    @Tool(value = "将用户在当前会话中已上传的文件作为邮件附件发送。只需传入收件邮箱、主题和正文，文件自动从缓存读取。")
+    public String sendEmailWithUserFile(
+            @ToolMemoryId String userId,
+            @P("收件邮箱地址") String toEmail,
+            @P("邮件主题") String subject,
+            @P("邮件正文内容") String content,
+            @P("是否HTML格式") boolean isHtml) {
+        UserFileCache.StoredFile file = UserFileCache.get(userId);
+        if (file == null) {
+            return "错误：没有可用的文件，请先发送文件后再试。";
+        }
+        log.info("[DailyHotTool] 发送用户文件，fileName={}, fileSize={} bytes", file.fileName(), file.data().length);
+        String base64 = java.util.Base64.getEncoder().encodeToString(file.data());
+        return sendEmailWithAttachment(toEmail, subject, content, isHtml, base64, file.fileName());
     }
 
     /**
