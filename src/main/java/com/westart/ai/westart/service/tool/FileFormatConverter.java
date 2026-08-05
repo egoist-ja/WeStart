@@ -204,7 +204,7 @@ public class FileFormatConverter {
     }
 
     /**
-     * 调用 UAPI 将 Markdown 文本渲染为 HTML。
+     * 调用 UAPI 将 Markdown 文本渲染为  HTML。
      *
      * @param markdown     Markdown 文本
      * @param completePage {@code true} 返回完整 HTML 页面，{@code false} 仅返回片段
@@ -446,83 +446,46 @@ public class FileFormatConverter {
         };
     }
 
-    // ==================== MarkItDown 文件→Markdown（Docker封装） ====================
+    // ==================== MarkItDown 文件→Markdown（内置exe） ====================
 
     private String toMarkdown(byte[] fileData, String suffix) {
         if (fileData == null || fileData.length == 0) return null;
-        if (!markitdownReady) {
-            synchronized (FileFormatConverter.class) {
-                if (!markitdownReady) {
-                    markitdownReady = ensureMarkitdownImage();
-                }
-            }
-        }
-        if (!markitdownReady) {
-            log.debug("markitdown Docker 镜像不可用，跳过");
-            return null;
-        }
+        String exe = findMarkitdown();
+        if (exe == null) return null;
         File tmp = null;
         try {
             tmp = saveTemp(fileData, suffix);
-            String inContainer = "/tmp/input" + suffix;
-            ProcessBuilder pb = new ProcessBuilder(
-                    "docker", "run", "--rm", "-v",
-                    tmp.getAbsolutePath() + ":" + inContainer,
-                    "markitdown:latest",
-                    "markitdown", inContainer);
+            ProcessBuilder pb = new ProcessBuilder(exe, tmp.getAbsolutePath());
             pb.redirectErrorStream(true);
             Process process = pb.start();
             String output = new String(process.getInputStream().readAllBytes(),
                     java.nio.charset.StandardCharsets.UTF_8);
             int exitCode = process.waitFor();
             if (exitCode != 0) {
-                log.warn("markitdown Docker 执行失败，exitCode={}，输出={}", exitCode,
+                log.warn("markitdown 执行失败，exitCode={}，输出={}", exitCode,
                         output.length() > 500 ? output.substring(0, 500) : output);
                 return null;
             }
             return output.strip();
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
-            log.debug("markitdown Docker 异常: {}", e.getMessage());
+            log.debug("markitdown 异常: {}", e.getMessage());
             return null;
         } finally {
             deleteFile(tmp);
         }
     }
 
-    private static volatile boolean markitdownReady;
-
-    private static boolean ensureMarkitdownImage() {
-        try {
-            ProcessBuilder pb = new ProcessBuilder(
-                    "docker", "image", "inspect", "markitdown:latest");
-            pb.redirectErrorStream(true);
-            Process p = pb.start();
-            if (p.waitFor() == 0) {
-                log.info("markitdown Docker 镜像已存在");
-                return true;
-            }
-        } catch (Exception ignored) {}
-
-        log.info("markitdown Docker 镜像不存在，开始自动构建...");
-        try {
-            String dockerfile = FileFormatConverter.class.getClassLoader()
-                    .getResource("markitdown.Dockerfile").getPath();
-            ProcessBuilder pb = new ProcessBuilder(
-                    "docker", "build", "-t", "markitdown:latest", "-f", dockerfile, ".");
-            pb.redirectErrorStream(true);
-            Process p = pb.start();
-            String output = new String(p.getInputStream().readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            if (p.waitFor() == 0) {
-                log.info("markitdown Docker 镜像构建成功");
-                return true;
-            }
-            log.error("markitdown Docker 镜像构建失败: {}", output);
-        } catch (Exception e) {
-            log.error("markitdown Docker 镜像构建异常", e);
-        }
-        return false;
+    private static String findMarkitdown() {
+        // 优先使用项目内置的 tools/markitdown.exe
+        File bundled = new File("tools/markitdown.exe");
+        if (bundled.exists()) return bundled.getAbsolutePath();
+        // 其次检查环境变量
+        String envPath = System.getenv("MARKITDOWN_PATH");
+        if (envPath != null && !envPath.isBlank() && new File(envPath).exists())
+            return envPath;
+        log.info("tools/markitdown.exe 不存在，请运行 scripts/build-markitdown.bat 构建");
+        return null;
     }
 
     // ====================  Java 兜底：DOCX/PDF 文本提取  ====================
