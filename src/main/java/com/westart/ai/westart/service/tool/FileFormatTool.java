@@ -32,7 +32,7 @@ public class FileFormatTool {
     private final ILinkClientSessionRegistry sessionRegistry;
 
     /**
-     * 接收并缓存微信用户发送的文件。
+     * 接收并缓存微信用户发送的文件 。
      *
      * <p>下载文件 → 校验大小 → 识别扩展名 → 存入 {@link UserFileCache} → 返回提示文本给 AI 模型。</p>
      *
