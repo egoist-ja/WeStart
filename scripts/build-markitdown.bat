@@ -63,7 +63,7 @@ if exist "dist\markitdown.exe" (
     echo.
     echo ============================================
     echo   构建完成！ tools\markitdown.exe
-    echo ============================================-
+    echo ============================================
 ) else (
     echo.
     echo 错误：构建失败，dist\markitdown.exe 不存在
