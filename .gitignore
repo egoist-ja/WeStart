@@ -14,3 +14,4 @@ node_modules/
 # 敏感配置文件（建议创建模板文件 application.yml.example 供团队参考）
 application-local.yml
 .env
+/docs/
