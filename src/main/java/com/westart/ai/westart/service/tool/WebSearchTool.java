@@ -47,56 +47,48 @@ public class WebSearchTool{
             用户明确要求联网查询时也应调用。本工具不用于数学计算、写作、翻译或长期稳定的基础知识。
             query为完整、具体的搜索问题，应包含需要查询的对象、时间范围和必要限定条件。
             """)
-    public String searchWeb(@P("完整、具体的联网搜索问题或关键词") String query) {
+    public String searchWeb(@P("完整、具体的联网搜索问题或关键词") String query) throws IOException {
         String normalizedQuery = normalizeQuery(query);
         if (normalizedQuery.isEmpty()) {
-            log.warn("跳过 UAPI 联网搜索：缺少有效的搜索关键词");
-            return "联网搜索失败：缺少有效的搜索关键词。";
+            throw new IllegalArgumentException("缺少有效的搜索关键词");
         }
 
         String apiKey = System.getenv("UAPI_KEY");
         if (apiKey == null || apiKey.isBlank()) {
-            log.error("UAPI 联网搜索 API Key 未配置，环境变量 UAPI_KEY 未设置");
-            return "联网搜索工具尚未配置，无法查询实时信息。";
+            throw new IllegalStateException("UAPI_KEY 环境变量未设置");
         }
 
         String loggedQuery = truncate(normalizedQuery, MAX_LOG_QUERY_LENGTH);
         long startNanos = System.nanoTime();
         log.info("开始执行 UAPI 联网搜索，query={}", loggedQuery);
 
-        try {
-            Map<String, Object> requestPayload = new LinkedHashMap<>();
-            requestPayload.put("query", normalizedQuery);
-            requestPayload.put("fetch_full", false);
-            requestPayload.put("sort", "relevance");
+        Map<String, Object> requestPayload = new LinkedHashMap<>();
+        requestPayload.put("query", normalizedQuery);
+        requestPayload.put("fetch_full", false);
+        requestPayload.put("sort", "relevance");
 
-            String requestJson = objectMapper.writeValueAsString(requestPayload);
-            Request request = new Request.Builder()
-                    .url(UAPI_SEARCH_API_URL)
-                    .post(RequestBody.create(requestJson, JSON_MEDIA_TYPE))
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json")
-                    .build();
+        String requestJson = objectMapper.writeValueAsString(requestPayload);
+        Request request = new Request.Builder()
+                .url(UAPI_SEARCH_API_URL)
+                .post(RequestBody.create(requestJson, JSON_MEDIA_TYPE))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .build();
 
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                ResponseBody responseBody = response.body();
-                String body = responseBody == null ? "" : responseBody.string();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String body = responseBody == null ? "" : responseBody.string();
 
-                if (!response.isSuccessful()) {
-                    log.error("UAPI 联网搜索请求失败，query={}，HTTP {}，elapsedMs={}，响应：{}",
-                            loggedQuery, response.code(), elapsedMillis(startNanos),
-                            truncate(cleanText(body), MAX_ERROR_BODY_LENGTH));
-                    return "联网搜索失败：服务返回 HTTP 状态码 "
-                            + response.code() + "，无法确认实时信息。";
-                }
-
-                return formatSearchResults(normalizedQuery, body, startNanos);
+            if (!response.isSuccessful()) {
+                log.error("UAPI 联网搜索请求失败，query={}，HTTP {}，elapsedMs={}，响应：{}",
+                        loggedQuery, response.code(), elapsedMillis(startNanos),
+                        truncate(cleanText(body), MAX_ERROR_BODY_LENGTH));
+                throw new IOException("联网搜索失败：服务返回 HTTP 状态码 "
+                        + response.code() + "，无法确认实时信息。");
             }
-        } catch (IOException | RuntimeException e) {
-            log.error("UAPI 联网搜索请求或结果解析失败，query={}，elapsedMs={}",
-                    loggedQuery, elapsedMillis(startNanos), e);
-            return "联网搜索暂时不可用，无法确认实时信息。";
+
+            return formatSearchResults(normalizedQuery, body, startNanos);
         }
     }
 
