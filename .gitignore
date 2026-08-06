@@ -26,3 +26,6 @@ dev/
 
 # 空 npm lock（项目无 package.json，不参与构建）
 package-lock.json
+
+# 设计文档（保留本地，不入库）
+docs/
