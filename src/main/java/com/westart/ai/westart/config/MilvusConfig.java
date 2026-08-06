@@ -113,12 +113,12 @@ public class MilvusConfig {
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
                 .fieldName("name")
-                .maxLength(32)
+                .maxLength(128)
                 .build());
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
                 .fieldName("description")
-                .maxLength(1536)
+                .maxLength(2048)
                 .enableAnalyzer(true)
                 .enableMatch(true)
                 .build());

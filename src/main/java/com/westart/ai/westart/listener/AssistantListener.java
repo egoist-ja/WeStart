@@ -1,6 +1,7 @@
 package com.westart.ai.westart.listener;
 
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 微信助手模型调用监听器。
@@ -32,8 +34,8 @@ public class AssistantListener implements ChatModelListener {
     public void onRequest(ChatModelRequestContext requestContext) {
         ChatRequest request = requestContext.chatRequest();
         List<String> visibleToolNames = request.toolSpecifications().stream()
-                .filter(tool -> tool != null)
-                .map(tool -> tool.name())
+                .filter(Objects::nonNull)
+                .map(ToolSpecification::name)
                 .toList();
         log.info("微信助手模型请求，模型名称={}，消息数={}，工具选择策略={}，"
                         + "可见工具数={}，可见工具={}",

@@ -243,7 +243,7 @@ public class ToolResultJsonProcessor {
         for (JsonNode element : arrayNode) {
             ObjectNode item = objectMapper.createObjectNode();
             for (Map.Entry<String, JsonNode> property
-                    : ((ObjectNode) element).properties()) {
+                    : (element).properties()) {
                 if (commonFields.get(property.getKey()) == null) {
                     item.set(property.getKey(), property.getValue());
                 }

@@ -2,7 +2,6 @@ package com.westart.ai.westart.service.tool;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -21,7 +20,6 @@ import java.util.regex.Pattern;
  * 统一提取能力摘要、有限的使用场景和关键参数名称，生成长度受控的
  * 检索描述，同时保持原始工具定义不变，避免影响运行时工具调用。
  */
-@Slf4j
 @Component
 public class ToolDescriptionNormalizer {
 
