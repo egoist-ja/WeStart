@@ -1,5 +1,6 @@
 package com.westart.ai.westart.service.tool;
 
+import dev.langchain4j.agent.tool.SearchBehavior;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +11,8 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class TimeTool {
 
-    @Tool("获取指定时区的当前日期和时间。当用户询问有关时间的问题或强时效的问题时调用此工具。")
+    @Tool(value="获取指定时区的当前日期和时间。当用户询问有关时间的问题或强时效的问题时调用此工具。",
+    searchBehavior = SearchBehavior.ALWAYS_VISIBLE)
     public String getCurrentTime(String timeZone) {
         try {
             ZoneId zoneId = (timeZone == null || timeZone.isBlank())
