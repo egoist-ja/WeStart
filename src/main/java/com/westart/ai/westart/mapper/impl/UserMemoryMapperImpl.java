@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 用户长期记忆数据访问，使用LambdaWrapper构建SQL。
@@ -23,19 +24,15 @@ public class UserMemoryMapperImpl {
     /**
      * 查询指定微信用户唯一的长期画像。
      *
-     * <p>当前阶段每个微信用户只绑定一个固定memoryKey的完整画像，
-     * 不会把不同用户的画像合并到同一条记录。</p>
+     * <p>每个微信用户只保存一条完整画像。</p>
      */
-    public List<UserMemory> selectByWechatUserIdAndMemoryKey(
-            String wechatUserId, String memoryKey) {
-        if (wechatUserId == null || wechatUserId.isBlank()
-                || memoryKey == null || memoryKey.isBlank()) {
+    public List<UserMemory> selectByWechatUserId(String wechatUserId) {
+        if (wechatUserId == null || wechatUserId.isBlank()) {
             return List.of();
         }
 
         LambdaQueryWrapper<UserMemory> wrapper = new LambdaQueryWrapper<UserMemory>()
-                .eq(UserMemory::getWechatUserId, wechatUserId)
-                .eq(UserMemory::getMemoryKey, memoryKey);
+                .eq(UserMemory::getWechatUserId, wechatUserId);
         UserMemory userMemory = userMemoryMapper.selectOne(wrapper);
         return userMemory == null ? List.of() : List.of(userMemory);
     }
@@ -43,8 +40,8 @@ public class UserMemoryMapperImpl {
     /**
      * 新增或更新长期记忆。
      *
-     * <p>按wechatUserId + memoryKey查询，存在则更新内容和来源并自增version，
-     * 不存在则新增，version设为1。</p>
+     * <p>按wechatUserId查询，存在则更新画像和来源并自增版本，
+     * 不存在则新增，版本设为1。</p>
      */
     public int upsertUserMemory(UserMemory memory) {
         if (memory == null) {
@@ -52,36 +49,28 @@ public class UserMemoryMapperImpl {
         }
 
         LambdaQueryWrapper<UserMemory> queryWrapper = new LambdaQueryWrapper<UserMemory>()
-                .eq(UserMemory::getWechatUserId, memory.getWechatUserId())
-                .eq(UserMemory::getMemoryKey, memory.getMemoryKey());
+                .eq(UserMemory::getWechatUserId, memory.getWechatUserId());
         UserMemory existing = userMemoryMapper.selectOne(queryWrapper);
 
         if (existing != null) {
+            if (Objects.equals(existing.getProfileContent(), memory.getProfileContent())
+                    && Objects.equals(
+                            existing.getLatestSourceMessageId(),
+                            memory.getLatestSourceMessageId())) {
+                return 0;
+            }
             LambdaUpdateWrapper<UserMemory> updateWrapper = new LambdaUpdateWrapper<UserMemory>()
                     .eq(UserMemory::getWechatUserId, memory.getWechatUserId())
-                    .eq(UserMemory::getMemoryKey, memory.getMemoryKey())
-                    .set(UserMemory::getContent, memory.getContent())
-                    .set(UserMemory::getSourceMessageId, memory.getSourceMessageId())
-                    .setSql("version = version + 1");
+                    .set(UserMemory::getProfileContent, memory.getProfileContent())
+                    .set(
+                            UserMemory::getLatestSourceMessageId,
+                            memory.getLatestSourceMessageId())
+                    .setSql("profile_version = profile_version + 1");
             return userMemoryMapper.update(null, updateWrapper);
         }
 
-        memory.setVersion(1);
+        memory.setProfileVersion(1);
         return userMemoryMapper.insert(memory);
     }
 
-    /**
-     * 删除指定微信用户的一条长期记忆。
-     */
-    public int deleteByWechatUserIdAndMemoryKey(String wechatUserId, String memoryKey) {
-        if (wechatUserId == null || wechatUserId.isBlank()
-                || memoryKey == null || memoryKey.isBlank()) {
-            return 0;
-        }
-
-        LambdaQueryWrapper<UserMemory> wrapper = new LambdaQueryWrapper<UserMemory>()
-                .eq(UserMemory::getWechatUserId, wechatUserId)
-                .eq(UserMemory::getMemoryKey, memoryKey);
-        return userMemoryMapper.delete(wrapper);
-    }
 }

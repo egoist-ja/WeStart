@@ -31,7 +31,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
     private final Gson gson;
 
     private static final String DATABASE_NAME = "westart";
-    private static final String COLLECTION_NAME = "user_topic_memory";
+    private static final String COLLECTION_NAME = "user_topic_memory_vector";
 
     @Override
     public InsertResp insertBatch(List<UserTopicMemory> messages) {
@@ -62,7 +62,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
         //稠密向量场搜索
         var request1 = AnnSearchReq.builder()
                 .metricType(IndexParam.MetricType.COSINE)
-                .vectorFieldName("searchable_content_dense_vector")
+                .vectorFieldName("topic_summary_dense_vector")
                 .vectors(List.of(new FloatVec(searchRequest.embedding())))
                 .filter(searchRequest.expr())
                 .limit(searchRequest.maxResults())
@@ -70,7 +70,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
         //稀疏向量场搜索
         var request2 = AnnSearchReq.builder()
                 .metricType(IndexParam.MetricType.BM25)
-                .vectorFieldName("searchable_content_sparse_vector")
+                .vectorFieldName("topic_summary_sparse_vector")
                 .vectors(List.of(new EmbeddedText(searchRequest.query())))
                 .filter(searchRequest.expr())
                 .limit(searchRequest.maxResults())
@@ -87,10 +87,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepository {
                         .build())
                 .outFields(List.of(
                         "wechat_user_id",
-                        "topic",
-                        "searchable_content",
-                        "occurred_at",
-                        "expires_at"
+                        "topic_summary"
                 ))
                 .searchRequests(List.of(request1, request2))
                 .build());

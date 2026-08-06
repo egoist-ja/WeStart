@@ -36,41 +36,44 @@ public class ChatMessageEmbeddingStore implements EmbeddingStore<UserTopicMemory
     /**
      * 添加未关联主题记忆的单个向量。
      *
-     * 当前主题记忆必须携带完整业务数据，因此该方式暂不执行写入。
+     * 当前主题记忆必须携带完整业务数据，因此不支持该写入方式。
      *
      * @param embedding 稠密向量
-     * @return 空字符串，表示未生成主题记忆主键
+     * @return 不会正常返回
+     * @throws UnsupportedOperationException 未提供主题记忆时抛出
      */
     @Override
     public String add(Embedding embedding) {
-        return "";
+        throw new UnsupportedOperationException("插入主题记忆向量时必须提供主题记忆");
     }
 
     /**
      * 使用指定主键添加未关联主题记忆的单个向量。
      *
-     * 当前主题记忆必须携带完整业务数据，因此该方式暂不执行写入。
+     * 当前主题记忆必须携带完整业务数据，因此不支持该写入方式。
      *
      * @param id 主题记忆主键
      * @param embedding 稠密向量
+     * @throws UnsupportedOperationException 未提供主题记忆时抛出
      */
     @Override
     public void add(String id, Embedding embedding) {
-
+        throw new UnsupportedOperationException("插入主题记忆向量时必须提供主题记忆");
     }
 
     /**
      * 添加单条用户主题记忆及其稠密向量。
      *
-     * 当前适配器仅开放批量写入链路，因此该方式暂不执行写入。
+     * 当前适配器仅开放批量写入链路，因此不支持该写入方式。
      *
      * @param embedding 稠密向量
      * @param userTopicMemory 用户主题记忆
-     * @return 空字符串，表示未生成主题记忆主键
+     * @return 不会正常返回
+     * @throws UnsupportedOperationException 当前仅开放批量写入链路时抛出
      */
     @Override
     public String add(Embedding embedding, UserTopicMemory userTopicMemory) {
-        return "";
+        throw new UnsupportedOperationException("主题记忆仅支持批量写入");
     }
 
     /**
@@ -175,12 +178,10 @@ public class ChatMessageEmbeddingStore implements EmbeddingStore<UserTopicMemory
                 throw new IllegalArgumentException("主题记忆向量不能为空，位置：" + index);
             }
             memoriesToInsert.add(new UserTopicMemory(
-                    memory.memoryId(),
+                    memory.topicMemoryId(),
                     memory.wechatUserId(),
-                    memory.topic(),
-                    memory.searchableContent(),
-                    memory.occurredAt(),
-                    memory.expiresAt(),
+                    memory.topicSummary(),
+                    memory.topicOccurredAt(),
                     vector));
         }
         return memoriesToInsert;
@@ -278,16 +279,14 @@ public class ChatMessageEmbeddingStore implements EmbeddingStore<UserTopicMemory
             SearchResp.SearchResult result) {
         Map<String, Object> fields = result.getEntity();
         UserTopicMemory memory = new UserTopicMemory(
-                result.getPrimaryKey(),
+                Long.valueOf(String.valueOf(result.getPrimaryKey())),
                 requiredField(fields, WECHAT_USER_ID_FIELD),
-                requiredField(fields, "topic"),
-                requiredField(fields, "searchable_content"),
-                requiredField(fields, "occurred_at"),
-                nullableField(fields, "expires_at"),
+                requiredField(fields, "topic_summary"),
+                topicOccurredAtField(fields),
                 null);
         return new EmbeddingMatch<>(
                 result.getScore().doubleValue(),
-                result.getPrimaryKey(),
+                String.valueOf(result.getPrimaryKey()),
                 null,
                 memory);
     }
@@ -300,6 +299,17 @@ public class ChatMessageEmbeddingStore implements EmbeddingStore<UserTopicMemory
      * @return 字段字符串值
      * @throws IllegalStateException 字段不存在或值为null时抛出
      */
+    private static Long topicOccurredAtField(Map<String, Object> fields) {
+        Object value = fields.get("topic_occurred_at");
+        if (value instanceof Long longValue) {
+            return longValue;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
+    }
+
     private static String requiredField(Map<String, Object> fields, String fieldName) {
         Object value = fields.get(fieldName);
         if (value == null) {
@@ -308,15 +318,4 @@ public class ChatMessageEmbeddingStore implements EmbeddingStore<UserTopicMemory
         return String.valueOf(value);
     }
 
-    /**
-     * 读取Milvus搜索结果中的可空字段。
-     *
-     * @param fields Milvus实体字段
-     * @param fieldName 字段名称
-     * @return 字段字符串值，字段值为null时返回null
-     */
-    private static String nullableField(Map<String, Object> fields, String fieldName) {
-        Object value = fields.get(fieldName);
-        return value == null ? null : String.valueOf(value);
-    }
 }

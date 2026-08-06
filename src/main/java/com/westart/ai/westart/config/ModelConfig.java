@@ -1,6 +1,7 @@
 package com.westart.ai.westart.config;
 
 import com.westart.ai.westart.listener.AssistantListener;
+import com.westart.ai.westart.listener.TopicMemoryFilterLogListener;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
@@ -104,15 +105,18 @@ public class ModelConfig {
     }
 
     /**
-     * 提取用户自画像模型
-     * @return
+     * 主题记忆筛选与语义分块模型。
+     *
+     * <p>第一阶段和第二阶段共用该内部模型，不复用带工具和聊天记忆的微信助手模型。</p>
      */
     @Bean
-    public QwenChatModel extraProfileModel(){
+    public QwenChatModel topicMemoryModel(TopicMemoryFilterLogListener topicMemoryFilterLogListener){
         return QwenChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
                 .modelName("qwen3.5-flash")
+                .listeners(List.of(topicMemoryFilterLogListener))
                 .build();
     }
+
 }

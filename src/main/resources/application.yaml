@@ -6,8 +6,8 @@ spring:
       url: redis://127.0.0.1:6379
   datasource:
     url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
-    username: root
-    password: ${PASSWORD}
+    username: westart
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   threads:
     virtual:
@@ -44,8 +44,8 @@ westart:
     history-batch-size: 20
     history-token-threshold: 8000
     history-max-wait: 1m
-    history-poll-interval: 5s
-    history-idle-timeout: 15s
+    history-poll-interval: 2s
+    history-idle-timeout: 3s
     history-pending-timeout: 1m
     history-max-delivery-attempts: 3
     history-dead-letter-stream-key: "stream:history:deadletter"

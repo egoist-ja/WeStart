@@ -1,6 +1,7 @@
 package com.westart.ai.westart.service;
 
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
+import com.westart.ai.westart.DTO.MessageDTO;
 
 import java.time.Instant;
 import java.util.List;
@@ -12,6 +13,11 @@ import java.util.Set;
  * <p>业务服务只负责提交消息，具体的Redis Stream写入由实现类处理。</p>
  */
 public interface ChatHistoryService {
+
+    /** 聊天消息角色常量：用户消息。 */
+    String ROLE_USER = "USER";
+    /** 聊天消息角色常量：AI回答。 */
+    String ROLE_AI = "AI";
 
     /**
      * Redis Stream中的一条聊天历史消息。
@@ -25,6 +31,16 @@ public interface ChatHistoryService {
             String role,
             String content,
             Instant createdAt) {
+
+        /**
+         * 转换为等待主题记忆分析的业务消息。
+         * Redis消费确认字段不进入业务DTO，当前memoryId作为微信用户ID传递。
+         *
+         * @return 业务消息DTO
+         */
+        public MessageDTO toMessageDTO() {
+            return new MessageDTO(messageId, memoryId, role, content, createdAt);
+        }
     }
 
     /**
@@ -42,30 +58,6 @@ public interface ChatHistoryService {
      * @param content AI最终文本回答
      */
     void publishAiMessage(String memoryId, String content);
-
-    /**
-     * 将一批Redis Stream消息幂等保存到聊天历史表。
-     *
-     * @param messages 待保存的Stream消息
-     * @return 本次数据库实际影响的记录数
-     */
-    int saveMessageBatch(List<StreamMessage> messages);
-
-    /**
-     * 将一批已经完成长期记忆处理的聊天消息标记为已处理。
-     *
-     * @param messageIds 已完成记忆处理的消息ID
-     * @return 数据库实际更新的记录数
-     */
-    int markMessagesMemoryProcessed(List<String> messageIds);
-
-    /**
-     * 查询指定消息中尚未完成长期记忆处理的消息ID。
-     *
-     * @param messageIds 待检查的消息ID
-     * @return 尚未完成长期记忆处理的消息ID
-     */
-    List<String> findUnprocessedMessageIds(List<String> messageIds);
 
     /**
      * 使用消费者组读取指定用户的一批尚未消费的聊天消息。

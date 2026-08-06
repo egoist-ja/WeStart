@@ -3,13 +3,13 @@ package com.westart.ai.westart.service.impl;
 import com.westart.ai.westart.entity.UserMemory;
 import com.westart.ai.westart.mapper.impl.UserMemoryMapperImpl;
 import com.westart.ai.westart.service.ChatHistoryService;
+import static com.westart.ai.westart.service.ChatHistoryService.ROLE_USER;
 import com.westart.ai.westart.service.MemoryService;
 import com.westart.ai.westart.service.ai.MemoryAssistant;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.*;
@@ -23,20 +23,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MemoryServiceImpl implements MemoryService {
 
-    private static final String ROLE_USER = "USER";
-
-    /**
-     * 当前阶段每个用户唯一的完整画像键。
-     *
-     * <p>数据库以wechat_user_id区分用户，以该固定键定位用户唯一画像行。</p>
-     */
-    private static final String USER_PROFILE_MEMORY_KEY = "user_profile";
-
     private final MemoryAssistant memoryAssistant;
     private final ObjectMapper objectMapper;
     private final UserMemoryMapperImpl userMemoryMapper;
-    private final ChatHistoryService chatHistoryService;
-    private final TransactionTemplate transactionTemplate;
 
     /**
      * 当前一对一微信机器人直接使用from_user_id作为稳定记忆ID。
@@ -54,63 +43,7 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     /**
-     * 串联一个Stream批次的历史持久化、画像分析和消费确认流程。
-     */
-    @Override
-    public void processMemoryBatch(List<ChatHistoryService.StreamMessage> messages) {
-        if (messages == null || messages.isEmpty()) {
-            return;
-        }
-
-        log.info("开始处理聊天记忆批次，messageCount={}", messages.size());
-        try {
-            chatHistoryService.saveMessageBatch(messages);
-
-            List<String> messageIds = messages.stream()
-                    .map(ChatHistoryService.StreamMessage::messageId)
-                    .toList();
-            Set<String> unprocessedMessageIds = Set.copyOf(
-                    chatHistoryService.findUnprocessedMessageIds(messageIds));
-            List<ChatHistoryService.StreamMessage> unprocessedMessages = messages.stream()
-                    .filter(message -> unprocessedMessageIds.contains(message.messageId()))
-                    .toList();
-            if (unprocessedMessages.isEmpty()) {
-                log.info("聊天记忆批次已全部处理过，跳过画像分析，messageCount={}",
-                        messages.size());
-                return;
-            }
-
-            List<ChatHistoryService.StreamMessage> candidateMessages =
-                    filterUserProfileMessages(unprocessedMessages);
-            List<String> profileContents = candidateMessages.isEmpty()
-                    ? Collections.emptyList()
-                    : summarizeUserProfile(candidateMessages);
-
-            transactionTemplate.executeWithoutResult(status -> {
-                if (!candidateMessages.isEmpty()) {
-                    synchronizeUserProfile(candidateMessages, profileContents);
-                }
-                chatHistoryService.markMessagesMemoryProcessed(
-                        unprocessedMessages.stream()
-                                .map(ChatHistoryService.StreamMessage::messageId)
-                                .toList());
-            });
-
-            log.info(
-                    "聊天记忆批次处理完成，messageCount={}，candidateCount={}",
-                    messages.size(),
-                    candidateMessages.size());
-        } catch (RuntimeException exception) {
-            log.error(
-                    "聊天记忆批次处理失败，当前批次不执行后续确认，messageCount={}",
-                    messages.size(),
-                    exception);
-            throw exception;
-        }
-    }
-
-    /**
-     * 使用第一阶段模型筛选用户画像候选消息，并校验模型返回的消息引用。
+     * 从已经通过主题筛选的原始USER消息中筛选画像候选，并校验模型返回的消息引用。
      */
     @Override
     public List<ChatHistoryService.StreamMessage> filterUserProfileMessages(
@@ -128,7 +61,7 @@ public class MemoryServiceImpl implements MemoryService {
             }
         }
         if (userMessageMap.isEmpty()) {
-            log.info("当前Stream批次不包含用户消息，跳过第一阶段记忆分析，messageCount={}",
+            log.info("主题筛选结果不包含用户消息，跳过用户画像分析，messageCount={}",
                     messages.size());
             return Collections.emptyList();
         }
@@ -145,21 +78,17 @@ public class MemoryServiceImpl implements MemoryService {
                 ? Collections.emptyList()
                 : analysisResult.messages();
         if (taggedMessages == null || taggedMessages.isEmpty()) {
-//            log.info("第一阶段记忆分析完成，messageCount={}，candidateCount=0", messages.size());
             return Collections.emptyList();
         }
 
         Map<String, ChatHistoryService.StreamMessage> candidateMessageMap = new LinkedHashMap<>();
-        int invalidResultCount = 0;
         for (MemoryAssistant.TaggedMessage taggedMessage : taggedMessages) {
             if (taggedMessage == null || !ROLE_USER.equals(taggedMessage.memoryTag())) {
-                invalidResultCount++;
                 continue;
             }
             ChatHistoryService.StreamMessage userMessage =
                     userMessageMap.get(taggedMessage.messageId());
             if (userMessage == null) {
-                invalidResultCount++;
                 continue;
             }
             candidateMessageMap.putIfAbsent(userMessage.messageId(), userMessage);
@@ -183,7 +112,7 @@ public class MemoryServiceImpl implements MemoryService {
         String candidateMessagesJson = toAnalysisJson(candidateMessages);
         String existingMemoriesJson = toJson(
                 existingMemories.stream()
-                        .map(UserMemory::getContent)
+                        .map(UserMemory::getProfileContent)
                         .filter(content -> !StringUtils.isBlank(content))
                         .toList(),
                 "已有用户画像");
@@ -225,7 +154,7 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     /**
-     * 使用后端固定的memoryKey同步该用户的完整画像。
+     * 同步该用户唯一的完整画像。
      */
     @Override
     public void synchronizeUserProfile(
@@ -244,13 +173,15 @@ public class MemoryServiceImpl implements MemoryService {
                         .toList();
 
         if (normalizedProfileContents.isEmpty()) {
-            int deletedRows = userMemoryMapper.deleteByWechatUserIdAndMemoryKey(
-                    wechatUserId,
-                    USER_PROFILE_MEMORY_KEY);
-            log.info("完整用户画像为空，已删除长期画像，deletedRows={}", deletedRows);
+            log.info("完整用户画像为空，保持已有长期画像不变，wechatUserId={}", wechatUserId);
             return;
         }
 
+        log.info(
+                "用户画像MySQL同步开始，wechatUserId={}，candidateCount={}，profileCount={}",
+                wechatUserId,
+                candidateMessages.size(),
+                normalizedProfileContents.size());
         String sourceMessageId = candidateMessages.stream()
                 .filter(message -> message.createdAt() != null)
                 .max(Comparator.comparing(ChatHistoryService.StreamMessage::createdAt))
@@ -261,7 +192,6 @@ public class MemoryServiceImpl implements MemoryService {
                 .collect(Collectors.joining(System.lineSeparator()));
         saveOrUpdateUserMemory(
                 wechatUserId,
-                USER_PROFILE_MEMORY_KEY,
                 profileContent,
                 sourceMessageId);
         log.info("完整用户画像同步完成，profileCount={}", normalizedProfileContents.size());
@@ -273,9 +203,7 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     public List<UserMemory> getUserMemories(String wechatUserId) {
         String memoryId = resolveMemoryId(wechatUserId);
-        List<UserMemory> memories = userMemoryMapper.selectByWechatUserIdAndMemoryKey(
-                memoryId, USER_PROFILE_MEMORY_KEY);
-//        log.info("用户长期记忆查询完成，memoryCount={}", memories.size());
+        List<UserMemory> memories = userMemoryMapper.selectByWechatUserId(memoryId);
         return List.copyOf(memories);
     }
 
@@ -285,7 +213,7 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     public String buildUserMemoryContext(String wechatUserId) {
         List<String> memoryContents = getUserMemories(wechatUserId).stream()
-                .map(UserMemory::getContent)
+                .map(UserMemory::getProfileContent)
                 .filter(content -> !StringUtils.isBlank(content))
                 .map(String::trim)
                 .distinct()
@@ -299,30 +227,27 @@ public class MemoryServiceImpl implements MemoryService {
     }
 
     /**
-     * 按微信用户ID和memoryKey新增或更新长期记忆。
+     * 按微信用户ID新增或更新完整画像。
     */
-    @Override
-    public void saveOrUpdateUserMemory(
+    private void saveOrUpdateUserMemory(
             String wechatUserId,
-            String memoryKey,
             String content,
             String sourceMessageId) {
         String memoryId = resolveMemoryId(wechatUserId);
-        if (StringUtils.isBlank(memoryKey)) {
-            throw new IllegalArgumentException("memoryKey不能为空");
-        }
         if (StringUtils.isBlank(content)) {
             throw new IllegalArgumentException("用户画像内容不能为空");
         }
 
         UserMemory userMemory = new UserMemory();
         userMemory.setWechatUserId(memoryId);
-        userMemory.setMemoryKey(memoryKey.trim());
-        userMemory.setContent(content.trim());
-        userMemory.setSourceMessageId(
+        userMemory.setProfileContent(content.trim());
+        userMemory.setLatestSourceMessageId(
                 StringUtils.isBlank(sourceMessageId) ? null : sourceMessageId.trim());
-        userMemoryMapper.upsertUserMemory(userMemory);
-        log.info("用户长期记忆保存完成，memoryKey={}", userMemory.getMemoryKey());
+        int affectedRows = userMemoryMapper.upsertUserMemory(userMemory);
+        log.info(
+                "用户长期画像保存完成，wechatUserId={}，affectedRows={}",
+                userMemory.getWechatUserId(),
+                affectedRows);
     }
 
     /**

@@ -24,7 +24,7 @@ public class MilvusConfig {
 
     private static final String DATABASE_NAME = "westart";
     private static final String TOOL_COLLECTION_NAME = "toolCollection";
-    private static final String USER_TOPIC_MEMORY_COLLECTION_NAME = "user_topic_memory";
+    private static final String USER_TOPIC_MEMORY_COLLECTION_NAME = "user_topic_memory_vector";
 
     @Bean
     public MilvusClientV2 milvusClient() {
@@ -176,11 +176,10 @@ public class MilvusConfig {
     private void createChatMessageCollection(MilvusClientV2 milvusClient) {
         CreateCollectionReq.CollectionSchema schema = MilvusClientV2.CreateSchema();
         schema.addField(AddFieldReq.builder()
-                .dataType(DataType.VarChar)
-                .fieldName("memory_id")
+                .dataType(DataType.Int64)
+                .fieldName("topic_memory_id")
                 .isPrimaryKey(true)
                 .autoID(false)
-                .maxLength(64)
                 .build());
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
@@ -189,58 +188,53 @@ public class MilvusConfig {
                 .build());
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.VarChar)
-                .fieldName("topic")
-                .maxLength(256)
-                .build());
-        schema.addField(AddFieldReq.builder()
-                .dataType(DataType.VarChar)
-                .fieldName("searchable_content")
+                .fieldName("topic_summary")
                 .maxLength(4096)
                 .enableAnalyzer(true)
                 .enableMatch(true)
                 .build());
         schema.addField(AddFieldReq.builder()
-                .dataType(DataType.Timestamptz)
-                .fieldName("occurred_at")
-                .build());
-        schema.addField(AddFieldReq.builder()
-                .dataType(DataType.Timestamptz)
-                .fieldName("expires_at")
-                .isNullable(true)
+                .dataType(DataType.Int64)
+                .fieldName("topic_occurred_at")
                 .build());
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.FloatVector)
                 .dimension(1024)
-                .fieldName("searchable_content_dense_vector")
+                .fieldName("topic_summary_dense_vector")
                 .build());
         schema.addField(AddFieldReq.builder()
                 .dataType(DataType.SparseFloatVector)
-                .fieldName("searchable_content_sparse_vector")
+                .fieldName("topic_summary_sparse_vector")
                 .build());
         schema.addFunction(CreateCollectionReq.Function.builder()
                 .functionType(FunctionType.BM25)
                 .name("topic_bm25")
-                .inputFieldNames(Collections.singletonList("searchable_content"))
+                .inputFieldNames(Collections.singletonList("topic_summary"))
                 .outputFieldNames(Collections.singletonList(
-                        "searchable_content_sparse_vector"))
+                        "topic_summary_sparse_vector"))
                 .build());
 
         List<IndexParam> indexes = new ArrayList<>();
         indexes.add(IndexParam.builder()
-                .fieldName("searchable_content_dense_vector")
-                .indexName("dense_vector_index")
+                .fieldName("topic_summary_dense_vector")
+                .indexName("topic_summary_dense_index")
                 .indexType(IndexParam.IndexType.AUTOINDEX)
                 .metricType(IndexParam.MetricType.COSINE)
                 .build());
         indexes.add(IndexParam.builder()
-                .fieldName("searchable_content_sparse_vector")
-                .indexName("sparse_vector_index")
+                .fieldName("topic_summary_sparse_vector")
+                .indexName("topic_summary_sparse_index")
                 .indexType(IndexParam.IndexType.SPARSE_INVERTED_INDEX)
                 .metricType(IndexParam.MetricType.BM25)
                 .build());
         indexes.add(IndexParam.builder()
                 .fieldName("wechat_user_id")
                 .indexName("wechat_user_id_index")
+                .indexType(IndexParam.IndexType.INVERTED)
+                .build());
+        indexes.add(IndexParam.builder()
+                .fieldName("topic_occurred_at")
+                .indexName("topic_occurred_at_index")
                 .indexType(IndexParam.IndexType.INVERTED)
                 .build());
 
