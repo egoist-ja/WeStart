@@ -28,9 +28,22 @@ public class ModelConfig {
         return OpenAiChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
-                .modelName("qwen3.7-plus")
+                .modelName("qwen3.8-max")
                 .customParameters(Map.of("enable_thinking", true))
                 .listeners(List.of(assistantListener))
+                .build();
+    }
+
+    /**
+     * 摘要等内部轻任务专用模型，不启用思考，避免长耗时。
+     * @return
+     */
+    @Bean
+    public OpenAiChatModel textAssistantModel() {
+        return OpenAiChatModel.builder()
+                .apiKey(System.getenv("QWEN_API_KEY"))
+                .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
+                .modelName("qwen3.5-flash")
                 .build();
     }
 
