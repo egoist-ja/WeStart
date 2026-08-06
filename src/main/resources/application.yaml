@@ -57,17 +57,17 @@ app:
 
 mcp:
   servers:
-    flyai:
-      name: 飞猪
-      description: >-
-        提供旅行服务查询能力，包括机票、酒店、景点、目的地和旅行方案的搜索、比较与推荐，可返回实时价格、可订选项和预订链接。适用于查询航班、住宿、景点信息以及规划综合旅行行程。
-      enabled: true
-      transport: streamable-http
-      url: https://flyai.open.fliggy.com/mcp
-      auth-type: flyai
-      api-key: ${FLYAI_API_KEY}
-      log-requests: false
-      log-responses: false
+#    flyai:
+#      name: 飞猪
+#      description: >-
+#        提供旅行服务查询能力，包括机票、酒店、景点、目的地和旅行方案的搜索、比较与推荐，可返回实时价格、可订选项和预订链接。适用于查询航班、住宿、景点信息以及规划综合旅行行程。
+#      enabled: true
+#      transport: streamable-http
+#      url: https://flyai.open.fliggy.com/mcp
+#      auth-type: flyai
+#      api-key: ${FLYAI_API_KEY}
+#      log-requests: false
+#      log-responses: false
 
     luckin:
       name: 瑞幸
@@ -80,18 +80,6 @@ mcp:
       api-key: ${LUCKIN_API_KEY}
       log-requests: false
       log-responses: false
-
-#    meituan:
-#      name: 美团
-#      description: >-
-#        美团旅行助手，一站式查询酒店、机票、火车票、景点门票并规划旅行行程，覆盖全国300多个城市。支持按出发地、目的地、预算、景点和出行时间理解自然语言需求，返回美团旅行的实时价格与预订链接。适用于酒店推荐、航班和铁路出行查询、门票价格查询、旅游攻略及亲子旅行推荐。
-#      enabled: true
-#      transport: streamable-http
-#      url: https://mcp.api-inference.modelscope.net/6c8dd283c5f347/mcp
-#      auth-type: bearer
-#      api-key: ${MODEL_SCOPE}
-#      log-requests: false
-#      log-responses: false
     hsr:
       name: 12306
       description: >-
@@ -127,14 +115,85 @@ mcp:
       log-responses: false
       api-key: ${SLIDEFORGE_API_KEY}
 
-    rollinggo:
-      name: RollingGo
+    tuniu-flight:
+      name: 途牛机票
       description: >-
-        提供全球酒店查询能力，包括按目的地和日期搜索酒店、按价格与设施筛选、查询酒店详情、房型、实时价格和可订状态。仅用于酒店住宿，不处理机票、火车票或景点查询。
+        提供国内航班搜索、舱位价格查询和在线预订能力。适用于查询航班时刻、票价、舱位，
+        以及完成机票下单。流程：搜索航班 → 查询舱位详情 → 创建订单 → 支付。
+        下单需要用户主动提供乘机人姓名、证件信息、手机号；下单成功后必须提醒用户点击支付链接完成支付。
       enabled: true
       transport: streamable-http
-      url: https://mcp.rollinggo.cn/mcp
-      auth-type: bearer
+      url: https://openapi.tuniu.cn/mcp/flight
+      auth-type: apikey
+      api-key: ${TUNIU_API_KEY}
       log-requests: false
       log-responses: false
-      api-key: ${ROLLING_GO}
+
+    tuniu-holiday:
+      name: 途牛度假
+      description: >-
+        提供度假产品（跟团游、自助游、自驾游、当地游等）搜索、产品详情与团期价格日历查询、
+        在线预订能力。适用于查询旅游线路、团期和价格，以及完成度假产品下单。
+        流程：搜索产品 → 查看详情与团期 → 选择出发日期 → 创建订单。
+        下单需要用户主动提供出游人姓名、证件信息、手机号。
+      enabled: true
+      transport: streamable-http
+      url: https://openapi.tuniu.cn/mcp/holiday
+      auth-type: apikey
+      api-key: ${TUNIU_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    tuniu-hotel:
+      name: 途牛酒店
+      description: >-
+        提供酒店搜索、酒店详情与房型报价查询、在线预订能力。适用于查询城市酒店、房型、
+        价格，以及完成酒店下单。流程：搜索酒店 → 查看房型报价 → 创建订单 → 支付。
+        下单需要用户主动提供入住人姓名、手机号。
+      enabled: true
+      transport: streamable-http
+      url: https://openapi.tuniu.cn/mcp/hotel
+      auth-type: apikey
+      api-key: ${TUNIU_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    tuniu-ticket:
+      name: 途牛门票
+      description: >-
+        提供景点门票查询和在线预订能力。适用于查询景点门票价格、票型，以及完成门票下单。
+        流程：查询门票 → 创建订单 → 支付。下单需要用户主动提供取票人与出游人姓名、
+        证件信息、手机号。
+      enabled: true
+      transport: streamable-http
+      url: https://openapi.tuniu.cn/mcp/ticket
+      auth-type: apikey
+      api-key: ${TUNIU_API_KEY}
+      log-requests: false
+      log-responses: false
+
+    tuniu-train:
+      name: 途牛火车票
+      description: >-
+        提供火车票车次列表搜索、车次详情与坐席价格查询、在线预订能力。适用于查询车次、
+        余票、坐席价格，以及完成火车票下单。流程：搜索车次 → 查询坐席详情 → 创建订单 → 支付。
+        下单需要用户主动提供乘车人姓名、证件信息、手机号。
+      enabled: true
+      transport: streamable-http
+      url: https://openapi.tuniu.cn/mcp/train
+      auth-type: apikey
+      api-key: ${TUNIU_API_KEY}
+      log-requests: false
+      log-responses: false
+
+#    rollinggo:
+#      name: RollingGo
+#      description: >-
+#        提供全球酒店查询能力，包括按目的地和日期搜索酒店、按价格与设施筛选、查询酒店详情、房型、实时价格和可订状态。仅用于酒店住宿，不处理机票、火车票或景点查询。
+#      enabled: true
+#      transport: streamable-http
+#      url: https://mcp.rollinggo.cn/mcp
+#      auth-type: bearer
+#      log-requests: false
+#      log-responses: false
+#      api-key: ${ROLLING_GO}
