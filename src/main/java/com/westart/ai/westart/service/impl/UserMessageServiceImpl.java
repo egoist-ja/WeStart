@@ -47,7 +47,8 @@ public class UserMessageServiceImpl implements UserMessageService {
      * 思维链块匹配模式，匹配 qwen 思考型模型返回的 think 标签块。
      */
     private static final Pattern THINKING_BLOCK_PATTERN = Pattern.compile(
-            "(?s)``.*?``\\s*");
+            "(?is)^\\s*(?:<think\\b[^>]*>)?.*?</think>\\s*"
+                    + "|<think\\b[^>]*>.*?</think>\\s*");
 
     private final ILinkClientSessionRegistry sessionRegistry;
     private final WeChatAssistant wechatAssistant;

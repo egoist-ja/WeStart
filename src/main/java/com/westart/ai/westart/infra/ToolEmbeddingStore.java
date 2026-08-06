@@ -12,9 +12,9 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import io.milvus.v2.service.vector.response.SearchResp;
 import io.milvus.v2.service.vector.response.UpsertResp;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,30 +33,37 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
      * 添加不包含工具实体的单个向量。
      *
      * @param embedding 工具向量
-     * @return 向量主键
+     * @return 不支持该操作
+     * @throws UnsupportedOperationException 工具向量未关联工具实体时抛出
      */
     @Override
-    public String add(Embedding embedding) {return "";}
+    public String add(Embedding embedding) {
+        throw new UnsupportedOperationException("插入工具向量时必须提供工具实体");
+    }
 
     /**
      * 使用指定主键添加不包含工具实体的向量。
      *
      * @param id 向量主键
      * @param embedding 工具向量
+     * @throws UnsupportedOperationException 工具向量未关联工具实体时抛出
      */
     @Override
-    public void add(String id, Embedding embedding) {}
+    public void add(String id, Embedding embedding) {
+        throw new UnsupportedOperationException("插入工具向量时必须提供工具实体");
+    }
 
     /**
      * 添加工具实体及其向量。
      *
      * @param embedding 工具向量
      * @param toolEntity 工具实体
-     * @return 工具主键
+     * @return 不支持该操作
+     * @throws UnsupportedOperationException 当前存储仅支持批量同步工具
      */
     @Override
     public String add(Embedding embedding, ToolEntity toolEntity) {
-        return "";
+        throw new UnsupportedOperationException("工具向量仅支持批量同步");
     }
 
     /**
@@ -91,8 +98,32 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
         if (embeddings.isEmpty()) {
             return List.of();
         }
+        validateElements(embeddings, toolEntities);
 
-        List<ToolEntity> entitiesToInsert = getToolEntities(embeddings, toolEntities);
+        List<String> toolIds = toolEntities.stream()
+                .map(ToolEntity::id)
+                .toList();
+        Map<String, ToolEntity> existingTools = new HashMap<>();
+        toolRepository.findByIds(toolIds)
+                .forEach(tool -> existingTools.put(tool.id(), tool));
+
+        List<Embedding> changedEmbeddings = new ArrayList<>();
+        List<ToolEntity> changedTools = new ArrayList<>();
+        for (int index = 0; index < toolEntities.size(); index++) {
+            ToolEntity tool = toolEntities.get(index);
+            Embedding embedding = embeddings.get(index);
+            if (!hasSameMetadata(tool, existingTools.get(tool.id()))) {
+                changedEmbeddings.add(embedding);
+                changedTools.add(tool);
+            }
+        }
+        if (changedTools.isEmpty()) {
+            return toolIds;
+        }
+
+        List<ToolEntity> entitiesToInsert = mergeEmbeddings(
+                changedEmbeddings,
+                changedTools);
         UpsertResp response;
         try {
             response = toolRepository.upsertBatch(entitiesToInsert);
@@ -113,9 +144,7 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
         if (primaryKeys == null || primaryKeys.size() != entitiesToInsert.size()) {
             throw new IllegalStateException("批量新增或更新工具向量返回的主键数量不一致");
         }
-        return primaryKeys.stream()
-                .map(String::valueOf)
-                .toList();
+        return toolIds;
     }
 
     /**
@@ -124,19 +153,14 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
      * @param embeddings 工具向量列表
      * @param toolEntities 工具实体列表
      * @return 包含稠密向量的工具实体列表
-     * @throws IllegalArgumentException 列表包含空元素或空向量时抛出
      */
-    private static @NonNull List<ToolEntity> getToolEntities(List<Embedding> embeddings, List<ToolEntity> toolEntities) {
+    private static List<ToolEntity> mergeEmbeddings(
+            List<Embedding> embeddings,
+            List<ToolEntity> toolEntities) {
         List<ToolEntity> entitiesToInsert = new ArrayList<>(toolEntities.size());
         for (int index = 0; index < toolEntities.size(); index++) {
             Embedding embedding = embeddings.get(index);
             ToolEntity toolEntity = toolEntities.get(index);
-            if (embedding == null || toolEntity == null) {
-                throw new IllegalArgumentException("向量和工具实体不能包含空元素，位置：" + index);
-            }
-            if (embedding.vector().length == 0) {
-                throw new IllegalArgumentException("工具向量不能为空，位置：" + index);
-            }
             entitiesToInsert.add(new ToolEntity(
                     toolEntity.id(),
                     toolEntity.type(),
@@ -146,6 +170,47 @@ public class ToolEmbeddingStore implements EmbeddingStore<ToolEntity> {
                     embedding.vector()));
         }
         return entitiesToInsert;
+    }
+
+    /**
+     * 校验批量写入的工具实体和向量元素。
+     *
+     * @param embeddings 工具向量列表
+     * @param toolEntities 工具实体列表
+     * @throws IllegalArgumentException 列表包含空元素或空向量时抛出
+     */
+    private static void validateElements(
+            List<Embedding> embeddings,
+            List<ToolEntity> toolEntities) {
+        for (int index = 0; index < toolEntities.size(); index++) {
+            Embedding embedding = embeddings.get(index);
+            ToolEntity toolEntity = toolEntities.get(index);
+            if (embedding == null || toolEntity == null) {
+                throw new IllegalArgumentException(
+                        "向量和工具实体不能包含空元素，位置：" + index);
+            }
+            if (embedding.vector().length == 0) {
+                throw new IllegalArgumentException(
+                        "工具向量不能为空，位置：" + index);
+            }
+        }
+    }
+
+    /**
+     * 判断工具检索元数据是否未发生变化。
+     *
+     * @param currentTool 当前工具实体
+     * @param existingTool Milvus中的已有工具实体
+     * @return 工具类型、名称、描述和入参Schema均相同时返回true
+     */
+    private boolean hasSameMetadata(
+            ToolEntity currentTool,
+            ToolEntity existingTool) {
+        return existingTool != null
+                && currentTool.type() == existingTool.type()
+                && currentTool.name().equals(existingTool.name())
+                && currentTool.description().equals(existingTool.description())
+                && currentTool.inputSchema().equals(existingTool.inputSchema());
     }
 
     /**

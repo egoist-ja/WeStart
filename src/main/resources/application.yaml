@@ -186,14 +186,14 @@ mcp:
       log-requests: false
       log-responses: false
 
-#    rollinggo:
-#      name: RollingGo
-#      description: >-
-#        提供全球酒店查询能力，包括按目的地和日期搜索酒店、按价格与设施筛选、查询酒店详情、房型、实时价格和可订状态。仅用于酒店住宿，不处理机票、火车票或景点查询。
-#      enabled: true
-#      transport: streamable-http
-#      url: https://mcp.rollinggo.cn/mcp
-#      auth-type: bearer
-#      log-requests: false
-#      log-responses: false
-#      api-key: ${ROLLING_GO}
+    rollinggo:
+      name: RollingGo
+      description: >-
+        提供全球酒店查询能力，包括按目的地和日期搜索酒店、按价格与设施筛选、查询酒店详情、房型、实时价格和可订状态。仅用于酒店住宿，不处理机票、火车票或景点查询。
+      enabled: true
+      transport: streamable-http
+      url: https://mcp.rollinggo.cn/mcp
+      auth-type: bearer
+      log-requests: false
+      log-responses: false
+      api-key: ${ROLLING_GO}
