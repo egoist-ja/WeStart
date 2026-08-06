@@ -7,6 +7,7 @@ import com.westart.ai.westart.service.tool.FoodOrderTool;
 import com.westart.ai.westart.service.tool.GaodeMapTool;
 import com.westart.ai.westart.service.tool.ImageGenerateTool;
 import com.westart.ai.westart.service.tool.LogisticsTool;
+import com.westart.ai.westart.service.tool.ReminderTool;
 import com.westart.ai.westart.service.tool.ToolCallGuard;
 import com.westart.ai.westart.service.tool.ToolSearchTool;
 import com.westart.ai.westart.service.tool.WeatherTool;
@@ -37,7 +38,8 @@ public class AiServiceConfig {
      * @param imageGenerateTool 图片生成工具
      * @param dailyHotTool 每日热点工具
      * @param fileFormatTool 文件格式工具
-     * @param foodOrderTool 餐饮工具
+     * @param reminderTool 定时提醒工具
+     * @param foodOrderTool 周边餐厅工具
      * @return 微信聊天助手
      */
     @Bean
@@ -53,8 +55,10 @@ public class AiServiceConfig {
             GaodeMapTool gaodeMapTool,
             ImageGenerateTool imageGenerateTool,
             DailyHotTool dailyHotTool,
-            FileFormatTool fileFormatTool
-            /**FoodOrderTool foodOrderTool8*/, ToolExecutedEventListener toolExecutedEventListener) {
+            FileFormatTool fileFormatTool,
+            ReminderTool reminderTool,
+            FoodOrderTool foodOrderTool,
+            ToolExecutedEventListener toolExecutedEventListener) {
         return AiServices.builder(WeChatAssistant.class)
                 .chatModel(weChatAssistantModel)
                 .chatMemoryProvider(redisChatMemoryProvider)
@@ -65,7 +69,9 @@ public class AiServiceConfig {
                         gaodeMapTool,
                         imageGenerateTool,
                         dailyHotTool,
-                        fileFormatTool)
+                        fileFormatTool,
+                        reminderTool,
+                        foodOrderTool)
                 .toolProvider(mcpToolProvider)
                 .toolSearchStrategy(toolSearchTool)
                 .chatRequestTransformer(toolCallGuard::apply)

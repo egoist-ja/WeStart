@@ -40,38 +40,32 @@ public class WeatherTool{
 
     @Tool(value = "查询中国指定城市的实时天气信息。仅用于当前天气查询，不用于天气预报或历史天气。"
             + "province为省级行政区名称，cityName为城市名称，二者均为必填参数；缺少时先询问用户。")
-    public String queryWeatherInfo(String province,String cityName) {
-        log.info("调用天气查询工具");
-        try {
-            String locationId = queryCityId(province,cityName);
-            String jwt = GenerateWeatherJWT.generateJWT();
-            String apiHost = getEnvironmentVariable(
-                    "API_HOST", "devapi.qweather.com");
+    public String queryWeatherInfo(String province, String cityName)
+            throws NoSuchAlgorithmException, InvalidKeySpecException,
+            InvalidKeyException, SignatureException, IOException {
+        log.info("调用天气查询工具，province={}，cityName={}", province, cityName);
+        String locationId = queryCityId(province, cityName);
+        String jwt = GenerateWeatherJWT.generateJWT();
+        String apiHost = getEnvironmentVariable("API_HOST", "devapi.qweather.com");
 
-            String url = "https://"+apiHost+ "/v7/weather/now?location=" + locationId;
-            log.info(url);
-            Request request = new Request.Builder()
-                    .url(url)
-                    .get()
-                    .header("Authorization", "Bearer " + jwt)
-                    .header("Accept", "application/json")
-                    .build();
+        String url = "https://" + apiHost + "/v7/weather/now?location=" + locationId;
+        log.info(url);
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer " + jwt)
+                .header("Accept", "application/json")
+                .build();
 
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                ResponseBody responseBody = response.body();
-                String body = responseBody == null ? "" : responseBody.string();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String body = responseBody == null ? "" : responseBody.string();
 
-                if (!response.isSuccessful()) {
-                    throw new IOException("天气接口请求失败，HTTP "
-                            + response.code() + ": " + body);
-                }
-                return body;
+            if (!response.isSuccessful()) {
+                throw new IOException("天气接口请求失败，HTTP "
+                        + response.code() + ": " + body);
             }
-
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException | InvalidKeyException
-                 | SignatureException | IOException e) {
-            log.error("查询天气信息失败，province={}，cityName={}", province, cityName, e);
-            return "查询天气信息失败，请稍后重试。";
+            return body;
         }
     }
 
@@ -81,55 +75,50 @@ public class WeatherTool{
      * @param cityName
      * @return
      */
-    private String queryCityId(String province, String cityName) {
-        try {
-            String jwt = GenerateWeatherJWT.generateJWT();
-            String apiHost = getEnvironmentVariable(
-                    "API_HOST", "devapi.qweather.com");
+    private String queryCityId(String province, String cityName)
+            throws NoSuchAlgorithmException, InvalidKeySpecException,
+            InvalidKeyException, SignatureException, IOException {
+        String jwt = GenerateWeatherJWT.generateJWT();
+        String apiHost = getEnvironmentVariable("API_HOST", "devapi.qweather.com");
 
-            HttpUrl url = new HttpUrl.Builder()
-                    .scheme("https")
-                    .host(apiHost)
-                    .addPathSegments("geo/v2/city/lookup")
-                    .addQueryParameter("location", cityName)
-                    .addQueryParameter("adm", province)
-                    .addQueryParameter("range", "cn")
-                    .addQueryParameter("number", "1")
-                    .addQueryParameter("lang", "zh")
-                    .build();
+        HttpUrl url = new HttpUrl.Builder()
+                .scheme("https")
+                .host(apiHost)
+                .addPathSegments("geo/v2/city/lookup")
+                .addQueryParameter("location", cityName)
+                .addQueryParameter("adm", province)
+                .addQueryParameter("range", "cn")
+                .addQueryParameter("number", "1")
+                .addQueryParameter("lang", "zh")
+                .build();
 
-            Request request = new Request.Builder()
-                    .url(url)
-                    .get()
-                    .header("Authorization", "Bearer " + jwt)
-                    .header("Accept", "application/json")
-                    .build();
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer " + jwt)
+                .header("Accept", "application/json")
+                .build();
 
-            try (Response response = okHttpClient.newCall(request).execute()) {
-                ResponseBody responseBody = response.body();
-                String body = responseBody == null ? "" : responseBody.string();
+        try (Response response = okHttpClient.newCall(request).execute()) {
+            ResponseBody responseBody = response.body();
+            String body = responseBody == null ? "" : responseBody.string();
 
-                if (!response.isSuccessful()) {
-                    throw new IOException("城市查询接口请求失败，HTTP "
-                            + response.code() + ": " + body);
-                }
-
-                JsonNode root = objectMapper.readTree(body);
-                if (!"200".equals(root.path("code").asText())) {
-                    throw new IOException("城市查询接口返回异常状态：" + body);
-                }
-
-                JsonNode locations = root.path("location");
-                if (!locations.isArray() || locations.isEmpty()
-                        || locations.get(0).path("id").asText().isBlank()) {
-                    throw new IOException("未查询到城市 " + province + " " + cityName);
-                }
-                return locations.get(0).path("id").asText();
+            if (!response.isSuccessful()) {
+                throw new IOException("城市查询接口请求失败，HTTP "
+                        + response.code() + ": " + body);
             }
-        } catch (NoSuchAlgorithmException | InvalidKeySpecException | InvalidKeyException
-                 | SignatureException | IOException e) {
-            log.error("查询城市ID失败，province={}，cityName={}", province, cityName, e);
-            return "查询城市ID失败，请稍后重试。";
+
+            JsonNode root = objectMapper.readTree(body);
+            if (!"200".equals(root.path("code").asText())) {
+                throw new IOException("城市查询接口返回异常状态：" + body);
+            }
+
+            JsonNode locations = root.path("location");
+            if (!locations.isArray() || locations.isEmpty()
+                    || locations.get(0).path("id").asText().isBlank()) {
+                throw new IOException("未查询到城市 " + province + " " + cityName);
+            }
+            return locations.get(0).path("id").asText();
         }
     }
 }

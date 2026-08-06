@@ -1,5 +1,6 @@
 package com.westart.ai.westart.config;
 
+import com.westart.ai.westart.config.strategy.ApiKeyMcpStrategy;
 import com.westart.ai.westart.config.strategy.BearerMcpStrategy;
 import com.westart.ai.westart.config.strategy.FlyaiMcpStrategy;
 import com.westart.ai.westart.service.tool.ToolRegistry;
@@ -96,6 +97,7 @@ public class McpConfig {
             case "none" -> context -> Map.of();
             case "bearer" -> new BearerMcpStrategy(serverConfig);
             case "flyai" -> new FlyaiMcpStrategy(serverConfig);
+            case "apikey" -> new ApiKeyMcpStrategy(serverConfig);
             default -> throw new IllegalArgumentException(
                     "不支持的 MCP authType: " + authType);
         };

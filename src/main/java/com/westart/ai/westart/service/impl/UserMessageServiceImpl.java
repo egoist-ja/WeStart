@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * 用户消息服务实现，负责解析消息批次、调用微信助手并发送处理结果。
@@ -38,11 +39,15 @@ import java.util.*;
 public class UserMessageServiceImpl implements UserMessageService {
 
     private static final String DEFAULT_IMAGE_PROMPT = "请分析用户发送的图片并给出有帮助的回答。";
-    private static final String TOOL_SEARCH_REMINDER =
-            "当当前可见工具无法回答用户的问题时，调用tool_search_tool搜索对应的工具。";
     private static final String EMPTY_VOICE_TRANSCRIPTION_REPLY =
             "语音消息未包含可用的转写内容呢，再试一遍吧？";
     private static final String MODEL_FAILURE_REPLY = "消息处理失败，请稍后重试。";
+
+    /**
+     * 思维链块匹配模式，匹配 qwen 思考型模型返回的 think 标签块。
+     */
+    private static final Pattern THINKING_BLOCK_PATTERN = Pattern.compile(
+            "(?s)``.*?``\\s*");
 
     private final ILinkClientSessionRegistry sessionRegistry;
     private final WeChatAssistant wechatAssistant;
@@ -143,15 +148,16 @@ public class UserMessageServiceImpl implements UserMessageService {
                     memoryId,
                     memoryContext,
                     prepareModelContents(contents));
-            if (!StringUtils.isBlank(result.content())) {
-                chatHistoryService.publishAiMessage(memoryId, result.content());
+            String replyContent = stripThinkingBlocks(result.content());
+            if (!StringUtils.isBlank(replyContent)) {
+                chatHistoryService.publishAiMessage(memoryId, replyContent);
             }
             boolean imageSent = sendGeneratedImages(client, sessionId, userId, result.toolExecutions());
-            if (!StringUtils.isBlank(result.content())) {
+            if (!StringUtils.isBlank(replyContent)) {
                 if (replyWithVoice) {
-                    voiceGenerateService.generateAndSendVoice(client, userId, result.content());
+                    voiceGenerateService.generateAndSendVoice(client, userId, replyContent);
                 } else {
-                    sendMessage(client, sessionId, userId, result.content());
+                    sendMessage(client, sessionId, userId, replyContent);
                 }
             } else if (!imageSent) {
                 throw new IllegalStateException("AI模型未返回有效回复");
@@ -161,6 +167,20 @@ public class UserMessageServiceImpl implements UserMessageService {
                     sessionId, userId, exception);
             sendFailureReply(client, sessionId, userId);
         }
+    }
+
+    /**
+     * 去除模型回复中的思维链内容，避免 thinking 块泄漏给用户。
+     *
+     * @param content 模型原始回复
+     * @return 过滤思维链后的回复；原始回复为空时返回原值
+     */
+    private String stripThinkingBlocks(String content) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+        String cleaned = THINKING_BLOCK_PATTERN.matcher(content).replaceAll("");
+        return cleaned.strip();
     }
 
     /**
@@ -292,12 +312,11 @@ public class UserMessageServiceImpl implements UserMessageService {
      */
     private List<Content> prepareModelContents(List<Content> contents) {
         boolean containsText = contents.stream().anyMatch(TextContent.class::isInstance);
-        List<Content> modelContents = new ArrayList<>(contents.size() + 2);
+        List<Content> modelContents = new ArrayList<>(contents.size() + 1);
         if (!containsText) {
             modelContents.add(TextContent.from(DEFAULT_IMAGE_PROMPT));
         }
         modelContents.addAll(contents);
-        modelContents.add(TextContent.from(TOOL_SEARCH_REMINDER));
         return List.copyOf(modelContents);
     }
 
