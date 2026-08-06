@@ -20,20 +20,11 @@ public interface MemoryService {
     String resolveMemoryId(String wechatUserId);
 
     /**
-     * 按既定顺序处理一个已经从Redis Stream读取的消息批次。
+     * 调用第一阶段记忆模型，从已经通过主题筛选的用户消息中筛选用户画像候选消息。
      *
-     * <p>只有聊天历史、画像分析、画像同步和处理状态全部成功后才确认Stream消息。</p>
+     * <p>模型返回结果还会经过后端校验，只保留输入中真实存在且角色为USER的消息。</p>
      *
-     * @param messages 当前待处理的Redis Stream消息批次
-     */
-    void processMemoryBatch(List<ChatHistoryService.StreamMessage> messages);
-
-    /**
-     * 调用第一阶段记忆模型，从当前Stream批次中筛选用户画像候选消息。
-     *
-     * <p>模型返回结果还会经过后端校验，只保留当前批次中真实存在且角色为USER的消息。</p>
-     *
-     * @param messages 当前Redis Stream消息批次
+     * @param messages 已经通过主题筛选的原始USER消息
      * @return 通过模型筛选和后端校验的用户消息
      */
     List<ChatHistoryService.StreamMessage> filterUserProfileMessages(
@@ -50,6 +41,8 @@ public interface MemoryService {
 
     /**
      * 将第二阶段返回的完整画像同步到长期记忆表。
+     *
+     * <p>画像内容为空时保持已有画像不变，避免模型空结果误删历史数据。</p>
      *
      * @param candidateMessages 本次画像生成使用的候选用户消息
      * @param profileContents 第二阶段模型返回的完整画像内容
@@ -74,19 +67,4 @@ public interface MemoryService {
      */
     String buildUserMemoryContext(String wechatUserId);
 
-    /**
-     * 新增或更新一条长期记忆。
-     *
-     * <p>memoryKey由后端业务规则产生，不允许记忆模型直接生成。</p>
-     *
-     * @param wechatUserId 微信用户ID
-     * @param memoryKey 后端维护的记忆键
-     * @param content 用户画像内容
-     * @param sourceMessageId 本次画像更新对应的来源用户消息ID
-     */
-    void saveOrUpdateUserMemory(
-            String wechatUserId,
-            String memoryKey,
-            String content,
-            String sourceMessageId);
 }

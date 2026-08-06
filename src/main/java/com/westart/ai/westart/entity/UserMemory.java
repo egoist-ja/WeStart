@@ -1,15 +1,15 @@
 package com.westart.ai.westart.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.Instant;
 
 /**
- * 用户长期记忆实体，对应user_memory表。
- *
- * <p>数据库使用wechat_user_id和memory_key联合主键，实体不声明单列TableId。</p>
+ * 用户长期画像实体，对应user_profile_memory表。
  */
 @Data
 @TableName("user_memory")
@@ -18,30 +18,26 @@ public class UserMemory {
     /**
      * 微信消息发送者的from_user_id。
      */
-    @TableField("wechat_user_id")
+    @TableId(value = "wechat_user_id", type = IdType.INPUT)
     private String wechatUserId;
-
-    /**
-     * 由后端代码维护的长期记忆键。
-     */
-    @TableField("memory_key")
-    private String memoryKey;
 
     /**
      * 用户画像内容。
      */
-    private String content;
+    @TableField("profile_content")
+    private String profileContent;
 
     /**
      * 本次画像更新对应的来源用户消息ID。
      */
-    @TableField("source_message_id")
-    private String sourceMessageId;
+    @TableField("latest_source_message_id")
+    private String latestSourceMessageId;
 
     /**
      * 画像内容更新次数，首次写入为1。
      */
-    private Integer version;
+    @TableField("profile_version")
+    private Integer profileVersion;
 
     /**
      * 画像创建时间。

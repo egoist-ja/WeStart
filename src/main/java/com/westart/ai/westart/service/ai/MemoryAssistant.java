@@ -15,7 +15,7 @@ import java.util.List;
  */
 @AiService(
         wiringMode = AiServiceWiringMode.EXPLICIT,
-        chatModel = "extraProfileModel"
+        chatModel = "topicMemoryModel"
 )
 public interface MemoryAssistant {
 

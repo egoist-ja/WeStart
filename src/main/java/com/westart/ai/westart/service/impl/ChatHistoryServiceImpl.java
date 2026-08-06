@@ -2,8 +2,6 @@ package com.westart.ai.westart.service.impl;
 
 import com.github.wechat.ilink.sdk.core.model.MessageItem;
 import com.github.wechat.ilink.sdk.core.model.WeixinMessage;
-import com.westart.ai.westart.entity.ChatMessage;
-import com.westart.ai.westart.mapper.impl.ChatMessageMapperImpl;
 import com.westart.ai.westart.service.ChatHistoryService;
 import io.micrometer.common.util.StringUtils;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +19,6 @@ import org.springframework.data.redis.connection.stream.StreamOffset;
 import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -44,8 +41,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatHistoryServiceImpl implements ChatHistoryService {
 
-    private static final String ROLE_USER = "USER";
-    private static final String ROLE_AI = "AI";
     private static final String HISTORY_CONSUMER_NAME = "westart-memory-consumer";
     private static final String IMAGE_MESSAGE_PLACEHOLDER = "[图片消息]";
     private static final String VIDEO_MESSAGE_PLACEHOLDER = "[视频消息]";
@@ -59,11 +54,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
      * Redis Stream及用户索引操作模板。
      */
     private final RedisTemplate<String, String> redisTemplate;
-
-    /**
-     * 聊天历史数据库访问组件。
-     */
-    private final ChatMessageMapperImpl chatMessageMapper;
 
     /**
      * 每个用户独立Stream的公共Key前缀。
@@ -145,71 +135,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                 Instant.now());
     }
 
-    /**
-     * 将Stream消息转换为聊天历史实体，并在同一事务中批量写入数据库。
-     * message_id重复时保留数据库中的原记录，不重复插入。
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public int saveMessageBatch(List<StreamMessage> messages) {
-        if (messages == null || messages.isEmpty()) {
-            return 0;
-        }
-
-        List<ChatMessage> chatMessages = messages.stream()
-                .map(this::toChatMessage)
-                .toList();
-        int affectedRows = chatMessageMapper.insertBatchIgnoreDuplicates(chatMessages);
-
-        log.info(
-                "聊天历史批量写入MySQL完成，messageCount={}，affectedRows={}",
-                chatMessages.size(),
-                affectedRows);
-        return affectedRows;
-    }
-
-    /**
-     * 批量标记已经完成长期记忆处理的聊天消息，不修改原始消息内容。
-     */
-    @Override
-    public int markMessagesMemoryProcessed(List<String> messageIds) {
-        if (messageIds == null || messageIds.isEmpty()) {
-            return 0;
-        }
-        List<String> normalizedMessageIds = messageIds.stream()
-                .filter(messageId -> !StringUtils.isBlank(messageId))
-                .distinct()
-                .toList();
-        if (normalizedMessageIds.isEmpty()) {
-            return 0;
-        }
-
-        int affectedRows = chatMessageMapper.markMemoryProcessed(normalizedMessageIds);
-//        log.info(
-//                "聊天消息记忆处理状态批量更新完成，messageCount={}，affectedRows={}",
-//                normalizedMessageIds.size(),
-//                affectedRows);
-        return affectedRows;
-    }
-
-    /**
-     * 查询指定消息中尚未完成长期记忆处理的消息ID。
-     */
-    @Override
-    public List<String> findUnprocessedMessageIds(List<String> messageIds) {
-        if (messageIds == null || messageIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<String> normalizedMessageIds = messageIds.stream()
-                .filter(messageId -> !StringUtils.isBlank(messageId))
-                .distinct()
-                .toList();
-        if (normalizedMessageIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return List.copyOf(chatMessageMapper.selectUnprocessedMessageIds(normalizedMessageIds));
-    }
-
     /** Per-User Stream 操作。 */
 
     /**
@@ -238,7 +163,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
         List<StreamMessage> messages = records.stream()
                 .map(this::toStreamMessage)
                 .toList();
-//        log.info("用户Stream阻塞读取成功，userId={}，messageCount={}", userId, messages.size());
         return messages;
     }
 
@@ -359,8 +283,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
             if (recordId == null) {
                 throw new IllegalStateException("Redis未返回Stream Record ID");
             }
-//            log.info("消息写入用户Stream成功，userId={}，recordId={}，role={}",
-//                    userId, recordId.getValue(), role);
         } catch (RuntimeException exception) {
             throw new IllegalStateException(
                     "消息写入用户Stream失败，userId=" + userId + "，role=" + role, exception);
@@ -504,23 +426,6 @@ public class ChatHistoryServiceImpl implements ChatHistoryService {
                     "Redis Stream消息创建时间格式错误，recordId=" + recordId,
                     exception);
         }
-    }
-
-    /**
-     * 将Redis Stream消息转换为chat_message表实体。
-     */
-    private ChatMessage toChatMessage(StreamMessage message) {
-        if (message == null) {
-            throw new IllegalArgumentException("Stream消息不能为空");
-        }
-        ChatMessage chatMessage = new ChatMessage();
-        chatMessage.setMessageId(message.messageId());
-        chatMessage.setWechatUserId(message.memoryId());
-        chatMessage.setRole(message.role());
-        chatMessage.setContent(message.content());
-        chatMessage.setCreatedAt(message.createdAt());
-        chatMessage.setMemoryProcessed(false);
-        return chatMessage;
     }
 
     /**
