@@ -4,7 +4,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.westart.ai.westart.entity.ToolEntity;
-import com.westart.ai.westart.entity.ToolType;
 import com.westart.ai.westart.service.ToolSearchService;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.exception.ToolExecutionException;
@@ -31,7 +30,6 @@ public class ToolSearchTool implements ToolSearchStrategy {
 
     private static final String SEARCH_TOOL_NAME = "tool_search_tool";
     private static final String QUERY_ARGUMENT_NAME = "query";
-    private static final String MCP_TOOL_NAME_SEPARATOR = "__";
     private static final String NO_MATCHING_TOOL_MESSAGE = "没有找到符合需求的工具";
 
     private final ToolSearchService toolSearchService;
@@ -156,18 +154,9 @@ public class ToolSearchTool implements ToolSearchStrategy {
             if (matchedTool == null) {
                 continue;
             }
-            if (matchedTool.type() == ToolType.LOCAL) {
-                if (searchableToolNames.contains(matchedTool.name())) {
-                    foundToolNames.add(matchedTool.name());
-                }
-                continue;
+            if (searchableToolNames.contains(matchedTool.name())) {
+                foundToolNames.add(matchedTool.name());
             }
-
-            String toolNamePrefix = matchedTool.name()
-                    + MCP_TOOL_NAME_SEPARATOR;
-            searchableToolNames.stream()
-                    .filter(name -> name.startsWith(toolNamePrefix))
-                    .forEach(foundToolNames::add);
         }
         return List.copyOf(foundToolNames);
     }

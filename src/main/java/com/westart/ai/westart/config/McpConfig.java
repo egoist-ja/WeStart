@@ -3,8 +3,10 @@ package com.westart.ai.westart.config;
 import com.westart.ai.westart.config.strategy.ApiKeyMcpStrategy;
 import com.westart.ai.westart.config.strategy.BearerMcpStrategy;
 import com.westart.ai.westart.config.strategy.FlyaiMcpStrategy;
+import com.westart.ai.westart.service.tool.JsonProcessingToolExecutor;
 import com.westart.ai.westart.service.tool.ToolRegistry;
-import dev.langchain4j.data.message.Content;
+import com.westart.ai.westart.service.tool.ToolResultJsonProcessor;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.mcp.client.DefaultMcpClient;
@@ -14,7 +16,6 @@ import dev.langchain4j.mcp.client.McpClientListener;
 import dev.langchain4j.mcp.client.McpHeadersSupplier;
 import dev.langchain4j.mcp.client.transport.McpTransport;
 import dev.langchain4j.mcp.client.transport.http.StreamableHttpMcpTransport;
-import dev.langchain4j.service.tool.ToolExecutionResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -44,7 +45,8 @@ public class McpConfig {
     @Bean
     public McpToolProvider mcpToolProvider(
             List<McpClientListener> clientListeners,
-            ToolRegistry toolRegistry) {
+            ToolRegistry toolRegistry,
+            ToolResultJsonProcessor toolResultJsonProcessor) {
         List<McpClient> mcpClients = new ArrayList<>();
         mcpProperties.getServers().forEach((serverKey, serverConfig) -> {
             if (serverConfig == null || !serverConfig.isEnabled()) {
@@ -67,17 +69,41 @@ public class McpConfig {
                         .initializationTimeout(Duration.ofSeconds(30))
                         .pingTimeout(Duration.ofSeconds(10))
                         .build();
+                List<ToolSpecification> mcpTools = mcpClient.listTools()
+                        .stream()
+                        .map(toolSpecification -> mapToolSpecification(
+                                mcpClient,
+                                toolSpecification))
+                        .toList();
                 mcpClients.add(mcpClient);
-                toolRegistry.registerMcpClient(mcpClient);
-                log.info("MCP客户端注册成功，serverKey={}", serverKey);
+                toolRegistry.registerMcpTools(serverKey, mcpTools);
+                log.info("MCP客户端注册成功，serverKey={}，工具数量={}",
+                        serverKey, mcpTools.size());
             } catch (RuntimeException e) {
                 log.error("MCP 客户端注册失败，serverKey: {}", serverKey, e);
             }
         });
         return McpToolProvider.builder()
                 .mcpClients(mcpClients)
-                .toolNameMapper((mcpClient, toolSpecification) ->
-                        mcpClient.key() + "__" + toolSpecification.name())
+                .toolSpecificationMapper(this::mapToolSpecification)
+                .toolWrapper(toolExecutor -> new JsonProcessingToolExecutor(
+                        toolExecutor,
+                        toolResultJsonProcessor))
+                .build();
+    }
+
+    /**
+     * 为MCP工具添加客户端命名空间，避免不同服务中的同名工具冲突。
+     *
+     * @param mcpClient MCP客户端
+     * @param toolSpecification MCP原始工具定义
+     * @return 使用客户端标识限定名称的工具定义
+     */
+    private ToolSpecification mapToolSpecification(
+            McpClient mcpClient,
+            ToolSpecification toolSpecification) {
+        return toolSpecification.toBuilder()
+                .name(mcpClient.key() + "__" + toolSpecification.name())
                 .build();
     }
 
@@ -119,20 +145,6 @@ public class McpConfig {
                 log.info("准备执行工具:{}",invocationContext.methodName());
             }
 
-            @Override
-            public void afterExecuteTool(
-                    McpCallContext context,
-                    ToolExecutionResult result,
-                    Map<String, Object> rawResult) {
-                InvocationContext invocationContext = context.invocationContext();
-                List<Content> contents = result.resultContents();
-                StringBuilder stringBuilder = new StringBuilder();
-                for (Content content : contents) {
-                    stringBuilder.append(content);
-                }
-                log.info("工具{}执行完毕，工具执行结果={}",
-                        invocationContext.methodName(), stringBuilder);
-            }
         });
         return mcpClientListeners;
     }

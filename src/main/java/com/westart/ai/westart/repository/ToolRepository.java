@@ -20,6 +20,14 @@ public interface ToolRepository {
     UpsertResp upsertBatch(List<ToolEntity> toolEntities);
 
     /**
+     * 根据主键批量查询已有工具实体。
+     *
+     * @param ids 工具主键列表
+     * @return 已存在的工具实体列表
+     */
+    List<ToolEntity> findByIds(List<String> ids);
+
+    /**
      * 删除不在有效主键列表中的工具实体。
      *
      * @param activeIds 当前有效的工具主键列表

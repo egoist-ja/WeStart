@@ -2,6 +2,7 @@ package com.westart.ai.westart.service.impl;
 
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.exception.ConnectFailedException;
+import com.github.wechat.ilink.sdk.core.exception.SessionExpiredException;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
 import com.github.wechat.ilink.sdk.core.login.LoginStatus;
 import com.westart.ai.westart.DTO.ILinkClientSession;
@@ -282,8 +283,8 @@ public class WeChatLoginServiceImpl implements WeChatLoginService {
     /**
      * 处理iLink客户端心跳失败。
      *
-     * <p>仅在服务端明确返回401或403时清理失效登录状态；临时网络故障保留登录状态，
-     * 由SDK在后续心跳中继续尝试连接。</p>
+     * <p>会话过期或服务端明确返回401、403时清理失效登录状态；
+     * 临时网络故障保留登录状态，由SDK在后续心跳中继续尝试连接。</p>
      *
      * @param sessionId 登录会话唯一标识
      * @param throwable 心跳异常
@@ -381,11 +382,14 @@ public class WeChatLoginServiceImpl implements WeChatLoginService {
      * 判断心跳失败是否由服务端拒绝登录凭证导致。
      *
      * @param throwable 心跳异常
-     * @return 异常链中包含HTTP 401或403时返回true
+     * @return 异常链中包含会话过期异常、HTTP 401或403时返回true
      */
     private boolean isAuthenticationFailure(Throwable throwable) {
         Throwable failure = throwable;
         while (failure != null) {
+            if (failure instanceof SessionExpiredException) {
+                return true;
+            }
             String message = failure.getMessage();
             if (message != null
                     && (message.contains(HTTP_UNAUTHORIZED_CODE)

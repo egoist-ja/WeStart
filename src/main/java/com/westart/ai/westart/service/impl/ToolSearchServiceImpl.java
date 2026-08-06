@@ -1,16 +1,15 @@
 package com.westart.ai.westart.service.impl;
 
 import com.google.gson.Gson;
-import com.westart.ai.westart.config.McpProperties;
 import com.westart.ai.westart.entity.ToolEntity;
 import com.westart.ai.westart.entity.ToolType;
 import com.westart.ai.westart.repository.ToolRepository;
 import com.westart.ai.westart.service.ToolSearchService;
+import com.westart.ai.westart.service.tool.ToolDescriptionNormalizer;
 import com.westart.ai.westart.service.tool.ToolRegistry;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.mcp.client.McpClient;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
@@ -39,7 +38,7 @@ public class ToolSearchServiceImpl implements ToolSearchService {
     private static final String EMPTY_INPUT_SCHEMA = "{}";
 
     private final ToolRegistry toolRegistry;
-    private final McpProperties mcpProperties;
+    private final ToolDescriptionNormalizer toolDescriptionNormalizer;
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStore<ToolEntity> toolEmbeddingStore;
     private final ToolRepository toolRepository;
@@ -68,7 +67,7 @@ public class ToolSearchServiceImpl implements ToolSearchService {
     }
 
     /**
-     * 应用启动完成后，将已注册的本地工具和MCP客户端写入向量数据库。
+     * 应用启动完成后，将已注册的本地工具和MCP工具写入向量数据库。
      *
      * @param event 应用启动完成事件
      * @throws IllegalArgumentException 应用启动完成事件为空时抛出
@@ -107,79 +106,49 @@ public class ToolSearchServiceImpl implements ToolSearchService {
     }
 
     /**
-     * 将注册中心中的本地工具和MCP客户端转换为工具实体。
+     * 将注册中心中的本地工具和MCP工具转换为工具实体。
      *
      * @return 待写入向量数据库的工具实体列表
      */
     private List<ToolEntity> buildToolEntities() {
         List<ToolEntity> toolEntities = new ArrayList<>();
-        toolRegistry.localTools().forEach((beanName, tools) ->
-                tools.keySet().forEach(specification ->
-                        toolEntities.add(toLocalToolEntity(specification))));
-        toolRegistry.mcpClients().forEach((clientKey, mcpClient) ->
-                toolEntities.add(toMcpEntity(clientKey, mcpClient)));
+        toolRegistry.localTools().values().forEach(tools ->
+                tools.forEach(tool -> toolEntities.add(toToolEntity(
+                        tool.toolSpecification(),
+                        ToolType.LOCAL,
+                        LOCAL_ID_PREFIX))));
+        toolRegistry.mcpTools().values().forEach(tools ->
+                tools.forEach(specification ->
+                        toolEntities.add(toToolEntity(
+                                specification,
+                                ToolType.MCP,
+                                MCP_ID_PREFIX))));
         return toolEntities;
     }
 
     /**
-     * 将本地工具定义转换为工具实体。
+     * 将工具定义转换为工具实体。
      *
-     * @param specification 本地工具定义
-     * @return 本地工具实体
+     * @param specification 工具定义
+     * @param toolType 工具类型
+     * @param idPrefix 工具主键前缀
+     * @return 工具实体
      */
-    private ToolEntity toLocalToolEntity(ToolSpecification specification) {
+    private ToolEntity toToolEntity(
+            ToolSpecification specification,
+            ToolType toolType,
+            String idPrefix) {
         String toolName = specification.name();
-        String description = specification.description();
-        if (description == null || description.isBlank()) {
-            description = toolName;
-        }
+        String description = toolDescriptionNormalizer.normalize(specification);
         String inputSchema = specification.parameters() == null
                 ? EMPTY_INPUT_SCHEMA
                 : gson.toJson(specification.parameters());
         return new ToolEntity(
-                stableId(LOCAL_ID_PREFIX + toolName),
-                ToolType.LOCAL,
+                stableId(idPrefix + toolName),
+                toolType,
                 toolName,
                 description,
                 inputSchema);
-    }
-
-    /**
-     * 将MCP客户端转换为工具实体，不获取和保存远程工具列表。
-     *
-     * @param clientKey MCP客户端标识
-     * @param mcpClient MCP客户端
-     * @return MCP工具实体
-     */
-    private ToolEntity toMcpEntity(String clientKey, McpClient mcpClient) {
-        McpProperties.ServerConfig serverConfig =
-                mcpProperties.getServers().get(clientKey);
-        String serverName = serverConfig == null
-                ? clientKey
-                : serverConfig.getName();
-        if (serverName == null || serverName.isBlank()) {
-            serverName = clientKey;
-        }
-
-        String configuredDescription = serverConfig == null
-                ? null
-                : serverConfig.getDescription();
-        String instructions = mcpClient.instructions();
-        String description;
-        if (configuredDescription != null
-                && !configuredDescription.isBlank()) {
-            description = configuredDescription;
-        } else if (instructions != null && !instructions.isBlank()) {
-            description = serverName + "：" + instructions;
-        } else {
-            description = serverName + " MCP服务";
-        }
-        return new ToolEntity(
-                stableId(MCP_ID_PREFIX + clientKey),
-                ToolType.MCP,
-                clientKey,
-                description,
-                EMPTY_INPUT_SCHEMA);
     }
 
     /**
