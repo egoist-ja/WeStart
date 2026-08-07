@@ -23,8 +23,8 @@ import java.util.function.Consumer;
 public class MilvusConfig {
 
     private static final String DATABASE_NAME = "westart";
-    private static final String TOOL_COLLECTION_NAME = "toolCollection";
-    private static final String USER_TOPIC_MEMORY_COLLECTION_NAME = "user_topic_memory_vector";
+    private static final String TOOL_COLLECTION_NAME = "tool_collection";
+    private static final String USER_TOPIC_MEMORY_COLLECTION_NAME = "user_topic_memory_collection";
 
     @Bean
     public MilvusClientV2 milvusClient() {
