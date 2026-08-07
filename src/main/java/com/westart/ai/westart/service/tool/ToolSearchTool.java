@@ -72,17 +72,33 @@ public class ToolSearchTool implements ToolSearchStrategy {
                 toolSearchRequest.toolExecutionRequest().arguments());
         log.info("AI调用工具搜索，工具名称={}，查询语句={}",
                 SEARCH_TOOL_NAME, query);
-        List<ToolEntity> matchedTools;
-        try {
-            matchedTools = toolSearchService.searchTools(query);
-        } catch (RuntimeException e) {
-            log.error("工具搜索执行失败", e);
-            throw new ToolExecutionException("工具搜索暂时不可用", e);
+
+        List<ToolEntity> matchedTools = null;
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                matchedTools = toolSearchService.searchTools(query);
+                break;
+            } catch (RuntimeException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("工具搜索第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        if (matchedTools == null) {
+            log.error("工具搜索最终失败，query={}", query, lastException);
+            throw new ToolExecutionException("工具搜索暂时不可用", lastException);
         }
 
         List<String> foundToolNames = resolveToolNames(
                 matchedTools,
                 toolSearchRequest.searchableTools());
+        log.info("工具搜索完成，query={}，命中数量={}，工具={}",
+                query, foundToolNames.size(),
+                foundToolNames.isEmpty() ? "无" : String.join("、", foundToolNames));
         String resultMessage = foundToolNames.isEmpty()
                 ? NO_MATCHING_TOOL_MESSAGE
                 : "已找到可用工具：" + String.join("、", foundToolNames);

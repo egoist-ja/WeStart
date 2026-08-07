@@ -412,6 +412,23 @@ public class GaodeMapTool {
      * @throws IOException 请求失败时抛出
      */
     private String executeRequest(String url) throws IOException {
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return executeSingleRequest(url);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("高德地图接口第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        throw lastException;
+    }
+
+    private String executeSingleRequest(String url) throws IOException {
         Request request = new Request.Builder()
                 .url(url)
                 .get()

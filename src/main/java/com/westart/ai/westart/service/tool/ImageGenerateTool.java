@@ -55,15 +55,24 @@ public class ImageGenerateTool {
             throw new IllegalArgumentException("图片生成描述不能超过" + MAX_CONTEXT_LENGTH + "个字符");
         }
         log.info("开始调用图片生成模型，contextLength={}", normalizedContext.length());
-        List<Image> images;
-        try {
-            images = imageGenerator.generateImage(normalizedContext);
-        } catch (RuntimeException exception) {
-            log.error(
-                    "调用图片生成模型失败，contextLength={}",
-                    normalizedContext.length(),
-                    exception);
-            throw new IllegalStateException("调用图片生成模型失败", exception);
+        List<Image> images = null;
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                images = imageGenerator.generateImage(normalizedContext);
+                break;
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("图片生成第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, exception.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        if (images == null) {
+            log.error("图片生成最终失败，contextLength={}", normalizedContext.length(), lastException);
+            throw new IllegalStateException("调用图片生成模型失败", lastException);
         }
 
         if (images == null || images.isEmpty()) {

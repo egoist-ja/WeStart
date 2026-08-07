@@ -62,6 +62,25 @@ public class WebSearchTool{
         long startNanos = System.nanoTime();
         log.info("开始执行 UAPI 联网搜索，query={}", loggedQuery);
 
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return executeSearch(normalizedQuery, loggedQuery, apiKey, startNanos);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("联网搜索第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        log.error("联网搜索最终失败，query={}，尝试次数=3", loggedQuery, lastException);
+        throw lastException;
+    }
+
+    private String executeSearch(String normalizedQuery, String loggedQuery,
+                                  String apiKey, long startNanos) throws IOException {
         Map<String, Object> requestPayload = new LinkedHashMap<>();
         requestPayload.put("query", normalizedQuery);
         requestPayload.put("fetch_full", false);

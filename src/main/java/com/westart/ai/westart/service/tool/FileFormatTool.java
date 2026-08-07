@@ -41,7 +41,7 @@ public class FileFormatTool {
         String fileName = item.getFile_item().getFile_name();
         if (fileName == null) return null;
         try {
-            byte[] fileData = client.downloadFileFromMessageItem(item);
+            byte[] fileData = downloadFileWithRetry(client, item, fileName);
             if (fileData == null || fileData.length == 0) return null;
             if (fileData.length > MAX_FILE_SIZE) {
                 log.warn("文件超过大小限制，userId={}，fileName={}，size={}", userId, fileName, fileData.length);
@@ -61,7 +61,7 @@ public class FileFormatTool {
             if (mime == null) return null;
             String fileKey = UserFileCache.store(userId, fileName, fileData, mime);
             return TextContent.from("用户发送了文件: " + fileName + " [文件ID: " + fileKey + "]");
-        } catch (IOException | ILinkException e) {
+        } catch (ILinkException e) {
             log.warn("文件下载失败，userId={}，fileName={}", userId, fileName);
             return null;
         }
@@ -271,5 +271,26 @@ public class FileFormatTool {
                 6. 支持的音频输入格式：MP3、M4A
                 7. 文档文本提取：Word (.docx) 和 PDF 文件可提取纯文本内容
                 """;
+    }
+
+    /**
+     * 带重试的文件下载（ILink 网络瞬断重试）。
+     */
+    private byte[] downloadFileWithRetry(ILinkClient client, MessageItem item, String fileName) {
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return client.downloadFileFromMessageItem(item);
+            } catch (Exception e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("文件下载第{}次尝试失败，{}ms后重试，fileName={}", attempt, delayMs, fileName);
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        log.error("文件下载最终失败，fileName={}", fileName, lastException);
+        return null;
     }
 }

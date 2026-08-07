@@ -61,6 +61,24 @@ public class LogisticsTool {
                 .header("Accept", "application/json")
                 .build();
 
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return executeLogisticsQuery(request, trackingNumber);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("快递查询第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        log.error("快递查询最终失败，trackingNumber={}", trackingNumber, lastException);
+        throw lastException;
+    }
+
+    private String executeLogisticsQuery(Request request, String trackingNumber) throws IOException {
         try (Response response = okHttpClient.newCall(request).execute()) {
             ResponseBody responseBody = response.body();
             String body = responseBody == null ? "" : responseBody.string();

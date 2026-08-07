@@ -50,6 +50,28 @@ public class WeatherTool{
 
         String url = "https://" + apiHost + "/v7/weather/now?location=" + locationId;
         log.info(url);
+
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return executeWeatherRequest(url, province, cityName);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("天气查询第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        log.error("天气查询最终失败，province={}，cityName={}", province, cityName, lastException);
+        throw lastException;
+    }
+
+    private String executeWeatherRequest(String url, String province, String cityName)
+            throws IOException, NoSuchAlgorithmException, InvalidKeySpecException,
+            InvalidKeyException, SignatureException {
+        String jwt = GenerateWeatherJWT.generateJWT();
         Request request = new Request.Builder()
                 .url(url)
                 .get()
@@ -62,9 +84,13 @@ public class WeatherTool{
             String body = responseBody == null ? "" : responseBody.string();
 
             if (!response.isSuccessful()) {
+                log.error("天气接口请求失败，province={}，cityName={}，HTTP {}：{}",
+                        province, cityName, response.code(), body);
                 throw new IOException("天气接口请求失败，HTTP "
                         + response.code() + ": " + body);
             }
+            log.info("天气查询成功，province={}，cityName={}，响应长度={} chars",
+                    province, cityName, body.length());
             return body;
         }
     }

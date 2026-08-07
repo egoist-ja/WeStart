@@ -28,7 +28,7 @@ public class ModelConfig {
         return OpenAiChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/compatible-mode/v1")
-                .modelName("qwen3.8-max")
+                .modelName("deepseek-v3")
                 .customParameters(Map.of("enable_thinking", true))
                 .listeners(List.of(assistantListener))
                 .build();

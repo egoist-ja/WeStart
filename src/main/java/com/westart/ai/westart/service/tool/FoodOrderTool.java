@@ -224,6 +224,23 @@ public class FoodOrderTool {
      * 执行高德 HTTP GET 请求。
      */
     private String executeAmapRequest(String url) throws IOException {
+        IOException lastException = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                return executeSingleAmapRequest(url);
+            } catch (IOException e) {
+                lastException = e;
+                if (attempt < 3) {
+                    long delayMs = attempt * 1000L + (long) (Math.random() * 500);
+                    log.warn("高德地图接口第{}次尝试失败，{}ms后重试：{}", attempt, delayMs, e.getMessage());
+                    try { Thread.sleep(delayMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+        throw lastException;
+    }
+
+    private String executeSingleAmapRequest(String url) throws IOException {
         Request request = new Request.Builder()
                 .url(url)
                 .get()
