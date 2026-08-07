@@ -11,11 +11,11 @@ import io.milvus.v2.common.IndexParam;
 import io.milvus.v2.service.collection.request.CreateCollectionReq;
 import io.milvus.v2.service.vector.request.AnnSearchReq;
 import io.milvus.v2.service.vector.request.HybridSearchReq;
-import io.milvus.v2.service.vector.request.InsertReq;
+import io.milvus.v2.service.vector.request.UpsertReq;
 import io.milvus.v2.service.vector.request.data.EmbeddedText;
 import io.milvus.v2.service.vector.request.data.FloatVec;
-import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
+import io.milvus.v2.service.vector.response.UpsertResp;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * 用户主题记忆Milvus仓储实现。
  *
- * <p>负责主题向量批量写入，以及稠密向量与BM25结果的混合检索。</p>
+ * 负责主题向量批量Upsert，以及稠密向量与BM25结果的混合检索。
  */
 @Slf4j
 @Repository
@@ -38,24 +38,36 @@ public class MilvusUserTopicMemoryVectorRepository implements UserTopicMemoryVec
     private static final String DATABASE_NAME = "westart";
     private static final String COLLECTION_NAME = "user_topic_memory_collection";
 
+    /**
+     * 使用主题记忆ID作为固定主键批量写入Milvus。
+     *
+     * @param memories 用户主题记忆向量
+     * @return Milvus Upsert结果
+     */
     @Override
-    public InsertResp insertBatch(List<UserTopicMemoryVector> messages) {
-        if (messages == null || messages.isEmpty()) {
-            log.info("主题记忆向量插入列表为空");
-            return InsertResp.builder()
-                    .InsertCnt(0)
+    public UpsertResp upsertBatch(List<UserTopicMemoryVector> memories) {
+        if (memories == null || memories.isEmpty()) {
+            log.info("主题记忆向量Upsert列表为空");
+            return UpsertResp.builder()
+                    .upsertCnt(0)
                     .build();
         }
-        List<JsonObject> messagesJson = messages.stream()
-                .map(message -> gson.toJsonTree(message).getAsJsonObject())
+        List<JsonObject> memoriesJson = memories.stream()
+                .map(memory -> gson.toJsonTree(memory).getAsJsonObject())
                 .toList();
-        return milvusClient.insert(InsertReq.builder()
+        return milvusClient.upsert(UpsertReq.builder()
                 .databaseName(DATABASE_NAME)
                 .collectionName(COLLECTION_NAME)
-                .data(messagesJson)
+                .data(memoriesJson)
                 .build());
     }
 
+    /**
+     * 使用稠密向量和BM25稀疏向量混合检索用户主题记忆。
+     *
+     * @param searchRequest 主题记忆搜索请求
+     * @return Milvus搜索结果
+     */
     @Override
     public SearchResp search(ChatMemorySearchRequest searchRequest) {
         if(searchRequest == null){

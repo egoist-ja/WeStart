@@ -2,8 +2,8 @@ package com.westart.ai.westart.memory.repository;
 
 import com.westart.ai.westart.memory.dto.ChatMemorySearchRequest;
 import com.westart.ai.westart.memory.entity.UserTopicMemoryVector;
-import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
+import io.milvus.v2.service.vector.response.UpsertResp;
 
 import java.util.List;
 
@@ -13,12 +13,12 @@ import java.util.List;
 public interface UserTopicMemoryVectorRepository {
 
     /**
-     * 批量插入用户主题记忆向量。
+     * 批量新增或覆盖用户主题记忆向量。
      *
-     * @param messages 用户主题记忆列表
-     * @return Milvus插入结果
+     * @param memories 用户主题记忆列表
+     * @return Milvus Upsert结果
      */
-    InsertResp insertBatch(List<UserTopicMemoryVector> messages);
+    UpsertResp upsertBatch(List<UserTopicMemoryVector> memories);
 
     /**
      * 混合搜索用户主题记忆。

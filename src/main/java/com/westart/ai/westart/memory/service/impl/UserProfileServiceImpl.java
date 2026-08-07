@@ -33,11 +33,11 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
 
     /**
-     * 根据公共过滤后的消息生成完整画像并持久化。
+     * 根据细筛结果中的用户消息生成完整画像并持久化。
      *
-     * <p>输入为空、没有用户消息或模型返回空画像时，不修改已有画像。</p>
+     * 输入为空、没有用户消息或模型返回空画像时，不修改已有画像。
      *
-     * @param messages 本批待分析的业务消息
+     * @param messages 本批细筛后的业务消息
      */
     @Override
     public void updateProfile(List<MessageDTO> messages) {
@@ -46,14 +46,15 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
 
         String wechatUserId = resolveWechatUserId(messages);
-        boolean hasUserMessage = messages.stream()
-                .anyMatch(message -> ROLE_USER.equals(message.role()));
-        if (!hasUserMessage) {
-            log.info("公共过滤结果中没有用户消息，跳过画像更新，wechatUserId={}", wechatUserId);
+        List<MessageDTO> userMessages = messages.stream()
+                .filter(message -> ROLE_USER.equals(message.role()))
+                .toList();
+        if (userMessages.isEmpty()) {
+            log.info("细筛结果中没有用户消息，跳过画像更新，wechatUserId={}", wechatUserId);
             return;
         }
 
-        List<String> profileContents = summarizeProfile(wechatUserId, messages);
+        List<String> profileContents = summarizeProfile(wechatUserId, userMessages);
         if (profileContents.isEmpty()) {
             log.info("模型未生成有效用户画像，保持已有画像不变，wechatUserId={}", wechatUserId);
             return;
@@ -90,7 +91,11 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     /**
-     * 结合已有画像生成用户当前的完整画像集合。
+     * 结合已有画像和本批用户消息生成当前完整画像集合。
+     *
+     * @param wechatUserId 微信用户ID
+     * @param messages 本批用户消息
+     * @return 当前完整画像集合
      */
     private List<String> summarizeProfile(
             String wechatUserId,
@@ -148,7 +153,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     /**
-     * 只向画像模型提供分析所需字段，不传递微信用户ID。
+     * 只向画像模型提供用户消息的分析字段，不传递微信用户ID。
+     *
+     * @param messages 本批用户消息
+     * @return 画像模型需要的消息JSON
      */
     private String toAnalysisJson(List<MessageDTO> messages) {
         List<Map<String, Object>> analysisMessages = messages.stream()
@@ -166,6 +174,10 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     /**
      * 序列化模型输入，避免在日志中输出原始画像或聊天内容。
+     *
+     * @param value 待序列化数据
+     * @param dataName 数据名称
+     * @return JSON字符串
      */
     private String toJson(Object value, String dataName) {
         try {

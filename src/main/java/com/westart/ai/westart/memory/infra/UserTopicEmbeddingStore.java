@@ -2,7 +2,6 @@ package com.westart.ai.westart.memory.infra;
 
 import com.westart.ai.westart.memory.adapter.RetrievalAugmentorAdapter;
 import com.westart.ai.westart.memory.dto.ChatMemorySearchRequest;
-import com.westart.ai.westart.memory.entity.UserTopicMemoryVector;
 import com.westart.ai.westart.memory.repository.UserTopicMemoryVectorRepository;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
@@ -12,9 +11,9 @@ import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.filter.Filter;
 import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
-import io.milvus.v2.service.vector.response.InsertResp;
 import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -101,27 +100,16 @@ public class UserTopicEmbeddingStore implements EmbeddingStore<TextSegment> {
     }
 
     /**
-     * 批量插入用户主题记忆及其稠密向量。
+     * 拒绝通过检索适配器批量写入主题记忆。
      *
      * @param embeddings 稠密向量列表
      * @param segments 主题记忆文本片段列表
-     * @return 成功插入的主题记忆主键列表
-     * @throws IllegalArgumentException 参数为空、数量不一致或包含无效元素时抛出
-     * @throws IllegalStateException Milvus插入结果为空或数量不一致时抛出
+     * @return 不会正常返回
+     * @throws UnsupportedOperationException 主题记忆只能由异步索引任务写入时抛出
      */
     @Override
     public List<String> addAll(List<Embedding> embeddings, List<TextSegment> segments) {
-        List<UserTopicMemoryVector> memoriesToInsert =
-                retrievalAugmentorAdapter.toMilvusMemories(embeddings, segments);
-        if (memoriesToInsert.isEmpty()) {
-            return List.of();
-        }
-
-        InsertResp response = userTopicMemoryVectorRepository.insertBatch(memoriesToInsert);
-        validateInsertResponse(response, memoriesToInsert.size());
-        return response.getPrimaryKeys().stream()
-                .map(String::valueOf)
-                .toList();
+        throw new UnsupportedOperationException("主题记忆只能由异步索引任务写入");
     }
 
     /**
@@ -149,30 +137,6 @@ public class UserTopicEmbeddingStore implements EmbeddingStore<TextSegment> {
     }
 
     /**
-     * 校验Milvus批量插入结果及返回主键数量。
-     *
-     * @param response Milvus批量插入结果
-     * @param expectedCount 期望插入数量
-     * @throws IllegalStateException 响应为空、插入数量或主键数量不一致时抛出
-     */
-    private static void validateInsertResponse(InsertResp response, int expectedCount) {
-        if (response == null) {
-            throw new IllegalStateException("批量插入用户主题记忆未返回结果");
-        }
-        if (response.getInsertCnt() != expectedCount) {
-            throw new IllegalStateException(
-                    "批量插入用户主题记忆数量不一致，期望："
-                            + expectedCount
-                            + "，实际："
-                            + response.getInsertCnt());
-        }
-        if (response.getPrimaryKeys() == null
-                || response.getPrimaryKeys().size() != expectedCount) {
-            throw new IllegalStateException("批量插入用户主题记忆返回的主键数量不一致");
-        }
-    }
-
-    /**
      * 将LangChain4j搜索请求转换为主题记忆仓储搜索DTO。
      *
      * @param request LangChain4j搜索请求
@@ -184,7 +148,7 @@ public class UserTopicEmbeddingStore implements EmbeddingStore<TextSegment> {
         if (request == null || request.queryEmbedding() == null) {
             throw new IllegalArgumentException("搜索请求和查询向量不能为空");
         }
-        if (request.query() == null || request.query().isBlank()) {
+        if (StringUtils.isBlank(request.query())) {
             throw new IllegalArgumentException("搜索文本不能为空");
         }
         String wechatUserId = extractWechatUserId(request.filter());
@@ -210,7 +174,7 @@ public class UserTopicEmbeddingStore implements EmbeddingStore<TextSegment> {
                     "搜索主题记忆必须使用wechat_user_id等值过滤");
         }
         String wechatUserId = String.valueOf(equalTo.comparisonValue());
-        if (wechatUserId.isBlank() || "null".equals(wechatUserId)) {
+        if (StringUtils.isBlank(wechatUserId) || "null".equals(wechatUserId)) {
             throw new IllegalArgumentException("微信用户ID不能为空");
         }
         return wechatUserId;
