@@ -1,0 +1,24 @@
+package com.westart.ai.westart.media.service.ai;
+
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.spring.AiService;
+import dev.langchain4j.service.spring.AiServiceWiringMode;
+
+
+/**
+ * 根据模型回答生成可直接发送的语音回复。
+ */
+@AiService(wiringMode = AiServiceWiringMode.EXPLICIT,
+    chatModel = "voiceGenerateModel")
+public interface VoiceGenerator {
+
+    /**
+     * 理解用户消息并生成语音回复。
+     *
+     * @param contents 当前用户消息批次
+     * @return 语音生成结果
+     */
+    AiMessage generateVoice(@UserMessage String contents);
+
+}

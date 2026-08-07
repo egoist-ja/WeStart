@@ -1,17 +1,18 @@
 package com.westart.ai.westart.config;
 
-import com.westart.ai.westart.handler.ToolErrorHandler;
-import com.westart.ai.westart.service.ai.WeChatAssistant;
-import com.westart.ai.westart.service.tool.JsonProcessingToolExecutor;
-import com.westart.ai.westart.service.tool.ToolCallGuard;
-import com.westart.ai.westart.service.tool.ToolRegistry;
-import com.westart.ai.westart.service.tool.ToolResultJsonProcessor;
-import com.westart.ai.westart.service.tool.ToolSearchTool;
+import com.westart.ai.westart.tool.handler.ToolErrorHandler;
+import com.westart.ai.westart.wechat.service.ai.WeChatAssistant;
+import com.westart.ai.westart.tool.runtime.JsonProcessingToolExecutor;
+import com.westart.ai.westart.tool.runtime.ToolCallGuard;
+import com.westart.ai.westart.tool.runtime.ToolRegistry;
+import com.westart.ai.westart.tool.runtime.ToolResultJsonProcessor;
+import com.westart.ai.westart.tool.ToolSearchTool;
 import dev.langchain4j.agent.tool.ReturnBehavior;
 import dev.langchain4j.mcp.McpToolProvider;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.observability.api.listener.ToolExecutedEventListener;
+import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.tool.AiServiceTool;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +35,7 @@ public class AiServiceConfig {
      * @param toolRegistry 工具注册中心
      * @param toolResultJsonProcessor 工具调用结果JSON处理器
      * @param toolExecutedEventListener 工具执行事件监听器
+     * @param retrievalAugmentor 用户主题记忆检索增强器
      * @return 微信聊天助手
      */
     @Bean
@@ -46,7 +48,8 @@ public class AiServiceConfig {
             McpToolProvider mcpToolProvider,
             ToolRegistry toolRegistry,
             ToolResultJsonProcessor toolResultJsonProcessor,
-            ToolExecutedEventListener toolExecutedEventListener) {
+            ToolExecutedEventListener toolExecutedEventListener,
+            RetrievalAugmentor retrievalAugmentor) {
         List<AiServiceTool> localTools = toolRegistry.localAiServiceTools()
                 .stream()
                 .map(tool -> wrapLocalTool(tool, toolResultJsonProcessor))
@@ -54,6 +57,7 @@ public class AiServiceConfig {
         return AiServices.builder(WeChatAssistant.class)
                 .chatModel(weChatAssistantModel)
                 .chatMemoryProvider(redisChatMemoryProvider)
+                .retrievalAugmentor(retrievalAugmentor)
                 .tools(localTools)
                 .toolProvider(mcpToolProvider)
                 .toolSearchStrategy(toolSearchTool)

@@ -5,8 +5,9 @@ spring:
     redis:
       url: redis://127.0.0.1:6379
   datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
     url: jdbc:mysql://localhost:3306/westart?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
-    username: westart
+    username: root
     password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   threads:
@@ -26,6 +27,33 @@ spring:
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
+    druid:
+      # 初始连接数
+      initial-size: 5
+      # 最小空闲连接数
+      min-idle: 5
+      # 最大活跃连接数
+      max-active: 20
+      # 获取连接最大等待时间(ms)，超时抛异常
+      max-wait: 60000
+      # 检测间隔(ms)，检测需要关闭的空闲连接
+      time-between-eviction-runs-millis: 60000
+      # 连接最小生存时间(ms)
+      min-evictable-idle-time-millis: 300000
+      # 验证查询SQL
+      validation-query: SELECT 1
+      # 申请连接时检测（建议true，保证可用性）
+      test-on-borrow: false
+      # 归还连接时检测
+      test-on-return: false
+      # 空闲时检测（推荐开启）
+      test-while-idle: true
+      # 是否缓存PreparedStatement
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+    wall:
+      config:
+        multi-statement-allow: false  # 防SQL注入：禁止多语句执行
 
 logging:
   level:
@@ -41,11 +69,11 @@ westart:
     max-tokens: 50000
     history-stream-key: "westart:stream:chat-history"
     history-consumer-group: "westart-chat-history-group"
-    history-batch-size: 20
+    history-batch-size: 10
     history-token-threshold: 8000
     history-max-wait: 1m
     history-poll-interval: 2s
-    history-idle-timeout: 3s
+    history-idle-timeout: 10m
     history-pending-timeout: 1m
     history-max-delivery-attempts: 3
     history-dead-letter-stream-key: "stream:history:deadletter"
@@ -55,19 +83,47 @@ app:
     images:
       dir: ./temp/images
 
+aliyun:
+  oss:
+    # Endpoint（外网，本地开发用）
+    endpoint: https://oss-cn-beijing.aliyuncs.com
+
+    # Bucket 名称
+    bucket-name: westart
+
+    # AccessKey（强烈建议从环境变量读取，不要硬编码！）
+    access-key-id: ${ALIBABA_CLOUD_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET:}
+
+    # 上传文件的基础路径前缀
+    base-path: uploads/
+
+    # 预签名 URL 默认有效期（秒）
+    presigned-url-expiration: 3600
+
+    # 允许上传的文件类型
+    allowed-file-types:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - application/pdf
+
+    # 单文件最大大小（字节），默认 10MB
+    max-file-size: 10485760*5
+
 mcp:
   servers:
-#    flyai:
-#      name: 飞猪
-#      description: >-
-#        提供旅行服务查询能力，包括机票、酒店、景点、目的地和旅行方案的搜索、比较与推荐，可返回实时价格、可订选项和预订链接。适用于查询航班、住宿、景点信息以及规划综合旅行行程。
-#      enabled: true
-#      transport: streamable-http
-#      url: https://flyai.open.fliggy.com/mcp
-#      auth-type: flyai
-#      api-key: ${FLYAI_API_KEY}
-#      log-requests: false
-#      log-responses: false
+    flyai:
+      name: 飞猪
+      description: >-
+        提供旅行服务查询能力，包括机票、酒店、景点、目的地和旅行方案的搜索、比较与推荐，可返回实时价格、可订选项和预订链接。适用于查询航班、住宿、景点信息以及规划综合旅行行程。
+      enabled: true
+      transport: streamable-http
+      url: https://flyai.open.fliggy.com/mcp
+      auth-type: flyai
+      api-key: ${FLYAI_API_KEY}
+      log-requests: false
+      log-responses: false
 
     luckin:
       name: 瑞幸

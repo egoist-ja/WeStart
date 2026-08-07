@@ -1,10 +1,10 @@
 package com.westart.ai.westart.config;
 
-import com.westart.ai.westart.listener.AssistantListener;
-import com.westart.ai.westart.listener.TopicMemoryFilterLogListener;
+import com.westart.ai.westart.wechat.listener.AssistantListener;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenChatRequestParameters;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +31,7 @@ public class ModelConfig {
                 .modelName("qwen3.7-plus")
                 .customParameters(Map.of("enable_thinking", true))
                 .listeners(List.of(assistantListener))
+                .logResponses(true)
                 .build();
     }
 
@@ -110,12 +111,19 @@ public class ModelConfig {
      * <p>第一阶段和第二阶段共用该内部模型，不复用带工具和聊天记忆的微信助手模型。</p>
      */
     @Bean
-    public QwenChatModel topicMemoryModel(TopicMemoryFilterLogListener topicMemoryFilterLogListener){
+    public QwenChatModel topicMemoryModel(
+            ChatModelListener memoryModelListener
+    ) {
         return QwenChatModel.builder()
                 .apiKey(System.getenv("QWEN_API_KEY"))
                 .baseUrl("https://"+System.getenv("WORKSPACE_ID")+".cn-beijing.maas.aliyuncs.com/api/v1")
                 .modelName("qwen3.5-flash")
-                .listeners(List.of(topicMemoryFilterLogListener))
+                .listeners(List.of(memoryModelListener))
+                .defaultRequestParameters(
+                    QwenChatRequestParameters.builder()
+                            .enableThinking(true)
+                            .thinkingBudget(512)
+                            .build())
                 .build();
     }
 
