@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.westart.ai.westart.memory.mapper.UserProfileMapper">
+
+    <!--
+        user_profile以wechat_user_id为主键。
+        用户画像只保存当前完整内容，不维护原始消息引用和历史版本。
+    -->
+    <insert id="upsert">
+        INSERT INTO user_profile (
+            wechat_user_id,
+            profile_content
+        ) VALUES (
+            #{userProfile.wechatUserId},
+            #{userProfile.profileContent}
+        )
+        ON DUPLICATE KEY UPDATE
+            profile_content = #{userProfile.profileContent}
+    </insert>
+
+</mapper>
