@@ -27,33 +27,33 @@ spring:
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
-    druid:
-      # 初始连接数
-      initial-size: 5
-      # 最小空闲连接数
-      min-idle: 5
-      # 最大活跃连接数
-      max-active: 20
-      # 获取连接最大等待时间(ms)，超时抛异常
-      max-wait: 60000
-      # 检测间隔(ms)，检测需要关闭的空闲连接
-      time-between-eviction-runs-millis: 60000
-      # 连接最小生存时间(ms)
-      min-evictable-idle-time-millis: 300000
-      # 验证查询SQL
-      validation-query: SELECT 1
-      # 申请连接时检测（建议true，保证可用性）
-      test-on-borrow: false
-      # 归还连接时检测
-      test-on-return: false
-      # 空闲时检测（推荐开启）
-      test-while-idle: true
-      # 是否缓存PreparedStatement
-      pool-prepared-statements: true
-      max-pool-prepared-statement-per-connection-size: 20
-    wall:
-      config:
-        multi-statement-allow: false  # 防SQL注入：禁止多语句执行
+  druid:
+    # 初始连接数
+    initial-size: 5
+    # 最小空闲连接数
+    min-idle: 5
+    # 最大活跃连接数
+    max-active: 20
+    # 获取连接最大等待时间(ms)，超时抛异常
+    max-wait: 60000
+    # 检测间隔(ms)，检测需要关闭的空闲连接
+    time-between-eviction-runs-millis: 60000
+    # 连接最小生存时间(ms)
+    min-evictable-idle-time-millis: 300000
+    # 验证查询SQL
+    validation-query: SELECT 1
+    # 申请连接时检测（建议true，保证可用性）
+    test-on-borrow: false
+    # 归还连接时检测
+    test-on-return: false
+    # 空闲时检测（推荐开启）
+    test-while-idle: true
+    # 是否缓存PreparedStatement
+    pool-prepared-statements: true
+    max-pool-prepared-statement-per-connection-size: 20
+  wall:
+    config:
+      multi-statement-allow: false  # 防SQL注入：禁止多语句执行
 
 logging:
   level:
@@ -77,6 +77,8 @@ westart:
     history-pending-timeout: 1m
     history-max-delivery-attempts: 3
     history-dead-letter-stream-key: "stream:history:deadletter"
+    topic-index-poll-delay: 5s
+    topic-index-batch-size: 20
 
 app:
   temp:

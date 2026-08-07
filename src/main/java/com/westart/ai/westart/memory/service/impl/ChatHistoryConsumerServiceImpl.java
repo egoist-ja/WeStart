@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * 聊天历史消费与长期记忆编排实现。
  *
- * <p>按用户持续消费Redis Stream，完成公共过滤后并行更新用户画像和主题记忆。</p>
+ * 按用户持续消费Redis Stream，完成公共过滤后并行更新用户画像和主题记忆。
  */
 @Service
 @Slf4j
@@ -102,10 +102,10 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
     /**
      * 持续消费指定用户Redis Stream中的消息。
      *
-     * <p>循环逻辑：
+     * 循环逻辑：
      * 1. 尝试重新领取超时的Pending消息，有则处理
      * 2. 阻塞等待新消息到达（XREADGROUP BLOCK），超时则回到步骤1
-     * 3. 收到新消息后处理用户画像与主题记忆，全部成功后ACK确认</p>
+     * 3. 收到新消息后处理用户画像与主题记忆，全部成功后ACK确认
      *
      * @param userId 微信用户ID
      */
@@ -157,7 +157,9 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
     }
 
     /**
-     * 过滤一个消息批次，并行更新用户画像和主题记忆，全部成功后确认消费。
+     * 过滤一个消息批次，并行完成用户画像和主题记忆的MySQL处理后确认消费。
+     *
+     * Milvus索引由独立任务异步完成，不参与Redis ACK成功条件。
      *
      * @param userId 微信用户ID
      */
@@ -172,7 +174,7 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
             processMemoriesInParallel(filteredMessages);
         }
         log.info(
-                "记忆处理完成，准备确认Redis Stream消息，userId={}，messageCount={}，filteredCount={}",
+                "记忆MySQL处理完成，准备确认Redis Stream消息，userId={}，messageCount={}，filteredCount={}",
                 userId,
                 messages.size(),
                 filteredMessages.size());
@@ -184,9 +186,9 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
     /**
      * 使用虚拟线程并行更新主题记忆和用户画像。
      *
-     * <p>等待两个任务全部结束，任一任务失败都会终止本批次确认。</p>
+     * 等待两个MySQL处理任务全部结束，任一任务失败都会终止本批次确认。
      *
-     * @param messages 公共过滤后的消息
+     * @param messages 完成粗筛和细筛后的消息
      */
     private void processMemoriesInParallel(List<MessageDTO> messages) {
         CompletableFuture<Void> topicMemoryFuture = CompletableFuture.runAsync(
@@ -218,6 +220,11 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
         private final AtomicBoolean running = new AtomicBoolean(true);
         private volatile Future<?> future;
 
+        /**
+         * 绑定已经提交的消费任务句柄。
+         *
+         * @param submittedFuture 消费任务句柄
+         */
         private void bind(Future<?> submittedFuture) {
             future = submittedFuture;
             if (!running.get()) {
@@ -225,10 +232,18 @@ public class ChatHistoryConsumerServiceImpl implements ChatHistoryConsumerServic
             }
         }
 
+        /**
+         * 判断当前消费任务是否应继续运行。
+         *
+         * @return 任务应继续运行时返回true
+         */
         private boolean isRunning() {
             return running.get();
         }
 
+        /**
+         * 标记任务停止并中断已提交的消费任务。
+         */
         private void cancel() {
             running.set(false);
             Future<?> currentFuture = future;

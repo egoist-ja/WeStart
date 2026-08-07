@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.westart.ai.westart.memory.domain.TopicMemoryCategory;
+import com.westart.ai.westart.memory.domain.TopicMemoryIndexStatus;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,7 +14,7 @@ import java.time.Instant;
 /**
  * 用户主题记忆MySQL实体，对应user_topic_memory表。
  *
- * <p>该实体只描述关系型数据库字段，不包含Milvus向量字段。</p>
+ * 该实体只描述关系型数据库字段，不包含Milvus向量字段。
  */
 @Getter
 @Setter
@@ -53,4 +54,16 @@ public class UserTopicMemory {
      */
     @TableField("topic_occurred_at")
     private Instant topicOccurredAt;
+
+    /**
+     * 主题引用的来源消息ID列表，使用JSON数组格式持久化。
+     */
+    @TableField("source_message_ids")
+    private String sourceMessageIds;
+
+    /**
+     * 主题记忆的Milvus索引状态。
+     */
+    @TableField("index_status")
+    private TopicMemoryIndexStatus indexStatus;
 }

@@ -1,22 +1,19 @@
 package com.westart.ai.westart.memory.service.impl;
 
 import com.westart.ai.westart.memory.domain.TopicMemoryCategory;
+import com.westart.ai.westart.memory.domain.TopicMemoryIndexStatus;
 import com.westart.ai.westart.memory.dto.MessageDTO;
 import com.westart.ai.westart.memory.dto.TopicMemorySummaryDTO;
-import com.westart.ai.westart.memory.entity.UserTopicMemoryVector;
+import com.westart.ai.westart.memory.entity.MemorySourceMessage;
 import com.westart.ai.westart.memory.entity.UserTopicMemory;
 import com.westart.ai.westart.memory.repository.UserTopicMemoryRepository;
-import com.westart.ai.westart.memory.repository.UserTopicMemoryVectorRepository;
 import com.westart.ai.westart.memory.service.UserTopicMemoryService;
 import com.westart.ai.westart.memory.service.ai.TopicMemoryAssistant;
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import io.milvus.v2.service.vector.response.InsertResp;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
@@ -36,7 +33,7 @@ import static com.westart.ai.westart.memory.service.ChatHistoryService.ROLE_USER
 /**
  * 用户主题记忆业务流程实现。
  *
- * <p>负责调用模型生成主题、校验结构化结果，并依次写入MySQL和Milvus。</p>
+ * 负责调用模型生成主题、校验结构化结果，并持久化到MySQL。
  */
 @Service
 @Slf4j
@@ -60,13 +57,12 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final UserTopicMemoryRepository userTopicMemoryRepository;
-    private final UserTopicMemoryVectorRepository userTopicMemoryVectorRepository;
-    private final EmbeddingModel embeddingModel;
 
     /**
-     * 完成主题总结、结果校验和顺序持久化。
+     * 完成幂等检查、主题总结、结果校验和MySQL事务持久化。
      *
-     * <p>输入为空或没有生成有效主题分块时不执行持久化。</p>
+     * 模型没有生成主题时仍保存来源消息，避免重试时重复调用模型。
+     * 重试批次包含部分已处理消息时，只处理尚未持久化的消息。
      *
      * @param messages 本批待分析的业务消息
      */
@@ -80,18 +76,53 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
         }
 
         Map<String, MessageDTO> sourceMessages = indexSourceMessages(messages);
-        String summaryJson = summarizeTopic(messages);
-        TopicMemorySummaryDTO validatedSummary = validateTopicSummary(summaryJson, sourceMessages);
-        if (validatedSummary.chunks().isEmpty()) {
-            log.info("没有生成有效主题分块，跳过记忆存储，messageCount={}", messages.size());
+        List<MemorySourceMessage> sourceMessageEntities = assembleSourceMessages(
+                sourceMessages);
+        List<MemorySourceMessage> unstoredSourceMessages =
+                userTopicMemoryRepository.selectUnstoredSourceMessages(sourceMessageEntities);
+        if (unstoredSourceMessages.isEmpty()) {
+            log.info("来源消息已经完成主题处理，跳过重复提取，messageCount={}", messages.size());
             return;
         }
 
+        Map<String, MessageDTO> unstoredMessageMap = new LinkedHashMap<>(
+                unstoredSourceMessages.size());
+        for (MemorySourceMessage sourceMessage : unstoredSourceMessages) {
+            unstoredMessageMap.put(
+                    sourceMessage.getMessageId(),
+                    sourceMessages.get(sourceMessage.getMessageId()));
+        }
+        List<MessageDTO> unstoredMessages = List.copyOf(unstoredMessageMap.values());
+        boolean containsUserMessage = unstoredMessages.stream()
+                .anyMatch(message -> ROLE_USER.equals(message.role()));
+        if (!containsUserMessage) {
+            userTopicMemoryRepository.saveSourceMessagesAndTopics(
+                    unstoredSourceMessages, List.of());
+            log.info(
+                    "未持久化消息中没有用户消息，仅保存来源消息，messageCount={}",
+                    unstoredSourceMessages.size());
+            return;
+        }
+        String summaryJson = summarizeTopic(unstoredMessages);
+        TopicMemorySummaryDTO validatedSummary = validateTopicSummary(
+                summaryJson, unstoredMessageMap);
         List<UserTopicMemory> topicMemories = assembleTopicMemories(
-                validatedSummary, sourceMessages);
-        persistTopicMemory(topicMemories);
+                validatedSummary, unstoredMessageMap);
+        userTopicMemoryRepository.saveSourceMessagesAndTopics(
+                unstoredSourceMessages, topicMemories);
+        log.info(
+                "主题记忆MySQL持久化完成，messageCount={}，topicMemoryCount={}",
+                unstoredSourceMessages.size(),
+                topicMemories.size());
     }
 
+    /**
+     * 调用主题模型总结当前消息批次。
+     *
+     * @param messages 细筛后的业务消息
+     * @return 模型返回的主题总结JSON
+     * @throws IllegalStateException 模型调用失败时抛出
+     */
     private String summarizeTopic(List<MessageDTO> messages) {
         try {
             return topicMemoryAssistant.summarizeTopic(
@@ -102,16 +133,28 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
         }
     }
 
+    /**
+     * 解析并校验主题模型返回结果。
+     *
+     * @param summaryJson 模型返回的主题总结JSON
+     * @param sourceMessages 当前批次按消息ID索引的来源消息
+     * @return 完成规范化和校验的主题总结
+     * @throws IllegalStateException JSON无效或总结内容不符合规则时抛出
+     */
     private TopicMemorySummaryDTO validateTopicSummary(
             String summaryJson, Map<String, MessageDTO> sourceMessages) {
-        if (summaryJson == null || summaryJson.isBlank()) throw invalidSummary("模型返回内容不能为空");
+        if (StringUtils.isBlank(summaryJson)) {
+            throw invalidSummary("模型返回内容不能为空");
+        }
         try {
             TopicMemorySummaryDTO summary = objectMapper
                     .readerFor(TopicMemorySummaryDTO.class)
                     .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                     .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .readValue(summaryJson);
-            if (summary == null) throw invalidSummary("JSON根节点不能为空");
+            if (summary == null) {
+                throw invalidSummary("JSON根节点不能为空");
+            }
             TopicMemorySummaryDTO normalizedSummary = normalizeSummary(summary);
             validateSummaryConstraints(normalizedSummary);
             validateSummaryBusinessRules(normalizedSummary, sourceMessages);
@@ -129,6 +172,10 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
 
     /**
      * 将校验后的主题分块及来源消息组装为MySQL实体。
+     *
+     * @param validatedSummary 完成校验的主题总结
+     * @param sourceMessages 当前批次按消息ID索引的来源消息
+     * @return 待持久化的主题记忆
      */
     private List<UserTopicMemory> assembleTopicMemories(
             TopicMemorySummaryDTO validatedSummary,
@@ -144,51 +191,61 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
             topicMemory.setTopicSummary(chunk.topicSummary());
             topicMemory.setCategory(TopicMemoryCategory.fromValue(chunk.category()));
             topicMemory.setTopicOccurredAt(sourceContext.occurredAt());
+            topicMemory.setSourceMessageIds(serializeSourceMessageIds(
+                    chunk.sourceMessageIds()));
+            topicMemory.setIndexStatus(TopicMemoryIndexStatus.PENDING);
             topicMemories.add(topicMemory);
         }
         return List.copyOf(topicMemories);
     }
 
     /**
-     * 先写入MySQL取得主题记忆ID，再生成向量并写入Milvus。
+     * 将细筛后的消息转换为MySQL来源消息实体。
      *
-     * @param topicMemories 待持久化的主题记忆
+     * @param sourceMessages 按消息ID索引的来源消息
+     * @return 保持原始顺序的来源消息实体
      */
-    private void persistTopicMemory(List<UserTopicMemory> topicMemories) {
-        if (topicMemories.isEmpty()) {
-            return;
+    private List<MemorySourceMessage> assembleSourceMessages(
+            Map<String, MessageDTO> sourceMessages) {
+        List<MemorySourceMessage> entities = new ArrayList<>(sourceMessages.size());
+        for (MessageDTO message : sourceMessages.values()) {
+            MemorySourceMessage entity = new MemorySourceMessage();
+            entity.setWechatUserId(message.wechatUserId());
+            entity.setMessageId(message.messageId());
+            entity.setRole(message.role());
+            entity.setContent(message.content());
+            entity.setOccurredAt(message.createdAt());
+            entities.add(entity);
         }
-
-        int affectedRows = userTopicMemoryRepository.insertBatch(topicMemories);
-        if (affectedRows != topicMemories.size()) {
-            throw new IllegalStateException("MySQL主题记忆写入数量不一致");
-        }
-
-        List<TextSegment> segments = topicMemories.stream()
-                .map(memory -> TextSegment.from(memory.getTopicSummary()))
-                .toList();
-        List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
-        if (embeddings == null || embeddings.size() != topicMemories.size()) {
-            throw new IllegalStateException("主题记忆向量生成数量不一致");
-        }
-
-        List<UserTopicMemoryVector> vectorMemories = new ArrayList<>(topicMemories.size());
-        for (int index = 0; index < topicMemories.size(); index++) {
-            UserTopicMemory topicMemory = topicMemories.get(index);
-            vectorMemories.add(new UserTopicMemoryVector(
-                    topicMemory.getTopicMemoryId(),
-                    topicMemory.getWechatUserId(),
-                    topicMemory.getTopicSummary(),
-                    topicMemory.getTopicOccurredAt().toEpochMilli(),
-                    embeddings.get(index).vector()));
-        }
-        InsertResp response = userTopicMemoryVectorRepository.insertBatch(vectorMemories);
-        if (response == null || response.getInsertCnt() != vectorMemories.size()) {
-            throw new IllegalStateException("Milvus主题记忆写入数量不一致");
-        }
-        log.info("主题记忆持久化完成，topicMemoryCount={}", topicMemories.size());
+        return List.copyOf(entities);
     }
 
+    /**
+     * 将主题引用的来源消息ID序列化为JSON数组。
+     *
+     * @param sourceMessageIds 来源消息ID
+     * @return JSON数组字符串
+     */
+    private String serializeSourceMessageIds(List<String> sourceMessageIds) {
+        try {
+            return objectMapper.writeValueAsString(sourceMessageIds);
+        } catch (Exception exception) {
+            log.error("主题来源消息ID序列化失败", exception);
+            throw new IllegalStateException("主题来源消息ID序列化失败", exception);
+        }
+    }
+
+    /**
+     * 根据主题引用的来源消息计算用户和主题发生时间。
+     *
+     * 同一主题只能引用同一用户的消息，主题发生时间取引用消息中的最晚时间。
+     *
+     * @param messageIds 主题引用的来源消息ID
+     * @param sourceMessages 当前批次按消息ID索引的来源消息
+     * @return 主题持久化所需的用户和发生时间
+     * @throws IllegalArgumentException 来源消息缺少用户或发生时间时抛出
+     * @throws IllegalStateException 主题引用当前批次之外的消息时抛出
+     */
     private TopicMemorySourceContext resolveChunkSourceContext(
             List<String> messageIds, Map<String, MessageDTO> sourceMessages) {
         String wechatUserId = null;
@@ -198,7 +255,7 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
             if (message == null) {
                 throw new IllegalStateException("分块包含当前消息批次之外的sourceMessageId");
             }
-            if (message.wechatUserId() == null || message.wechatUserId().isBlank()) {
+            if (StringUtils.isBlank(message.wechatUserId())) {
                 throw new IllegalArgumentException("主题来源消息缺少wechatUserId");
             }
             if (wechatUserId == null) {
@@ -216,10 +273,17 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
         return new TopicMemorySourceContext(wechatUserId, occurredAt);
     }
 
+    /**
+     * 校验消息ID并按原始顺序建立来源消息索引。
+     *
+     * @param messages 细筛后的业务消息
+     * @return 以消息ID为键的有序来源消息
+     * @throws IllegalArgumentException 消息为空、缺少消息ID或消息ID重复时抛出
+     */
     private Map<String, MessageDTO> indexSourceMessages(List<MessageDTO> messages) {
         Map<String, MessageDTO> sourceMessages = new LinkedHashMap<>(messages.size());
         for (MessageDTO message : messages) {
-            if (message == null || message.messageId() == null || message.messageId().isBlank()) {
+            if (message == null || StringUtils.isBlank(message.messageId())) {
                 throw new IllegalArgumentException("主题记忆消息缺少messageId");
             }
             if (sourceMessages.putIfAbsent(message.messageId(), message) != null) {
@@ -230,84 +294,206 @@ public class UserTopicMemoryServiceImpl implements UserTopicMemoryService {
         return sourceMessages;
     }
 
-    private TopicMemorySummaryDTO normalizeSummary(TopicMemorySummaryDTO s) {
-        if (s == null || s.chunks() == null) return s;
-        List<TopicMemorySummaryDTO.TopicChunk> nc = s.chunks().stream().map(c -> {
-            if (c == null) return null;
-            List<String> ids = c.sourceMessageIds() == null ? null :
-                    c.sourceMessageIds().stream().map(id -> id == null ? null : id.trim()).toList();
-            return new TopicMemorySummaryDTO.TopicChunk(
-                    c.topicName() == null ? null : c.topicName().trim(),
-                    c.topicSummary() == null ? null : c.topicSummary().trim(),
-                    normalizeCategory(c.category()), ids);
-        }).toList();
-        return new TopicMemorySummaryDTO(nc);
+    /**
+     * 去除主题字段和来源消息ID两端的空白，并规范化主题分类。
+     *
+     * @param summary 原始主题总结
+     * @return 规范化后的主题总结
+     */
+    private TopicMemorySummaryDTO normalizeSummary(TopicMemorySummaryDTO summary) {
+        if (summary == null || summary.chunks() == null) {
+            return summary;
+        }
+        List<TopicMemorySummaryDTO.TopicChunk> normalizedChunks = summary.chunks()
+                .stream()
+                .map(chunk -> {
+                    if (chunk == null) {
+                        return null;
+                    }
+                    List<String> sourceMessageIds = chunk.sourceMessageIds() == null
+                            ? null
+                            : chunk.sourceMessageIds().stream()
+                                    .map(messageId -> messageId == null
+                                            ? null
+                                            : messageId.trim())
+                                    .toList();
+                    return new TopicMemorySummaryDTO.TopicChunk(
+                            chunk.topicName() == null
+                                    ? null
+                                    : chunk.topicName().trim(),
+                            chunk.topicSummary() == null
+                                    ? null
+                                    : chunk.topicSummary().trim(),
+                            TopicMemoryCategory.fromValue(chunk.category()).value(),
+                            sourceMessageIds);
+                })
+                .toList();
+        return new TopicMemorySummaryDTO(normalizedChunks);
     }
 
-    private String normalizeCategory(String category) {
-        return TopicMemoryCategory.fromValue(category).value();
+    /**
+     * 使用Jakarta Validation校验主题总结的数据结构。
+     *
+     * @param summary 待校验的主题总结
+     * @throws IllegalStateException 任一字段违反约束时抛出
+     */
+    private void validateSummaryConstraints(TopicMemorySummaryDTO summary) {
+        Set<ConstraintViolation<TopicMemorySummaryDTO>> violations =
+                validator.validate(summary);
+        if (violations.isEmpty()) {
+            return;
+        }
+        String details = violations.stream()
+                .map(violation -> violation.getPropertyPath()
+                        + " "
+                        + violation.getMessage())
+                .sorted()
+                .reduce((left, right) -> left + "；" + right)
+                .orElse("DTO字段校验失败");
+        throw invalidSummary(details);
     }
 
-    private void validateSummaryConstraints(TopicMemorySummaryDTO s) {
-        Set<ConstraintViolation<TopicMemorySummaryDTO>> vs = validator.validate(s);
-        if (vs.isEmpty()) return;
-        String d = vs.stream().map(v -> v.getPropertyPath() + " " + v.getMessage())
-                .sorted().reduce((l, r) -> l + "；" + r).orElse("DTO字段校验失败");
-        throw invalidSummary(d);
-    }
-
-    private void validateSummaryBusinessRules(TopicMemorySummaryDTO s, Map<String, MessageDTO> src) {
-        for (int i = 0; i < s.chunks().size(); i++) {
-            TopicMemorySummaryDTO.TopicChunk c = s.chunks().get(i);
-            String loc = "chunks[" + i + "]";
-            validateMeaningfulContent(c.topicSummary(), loc);
-            validateSensitiveContent(c.topicName(), c.topicSummary(), loc);
-            validateSourceMessageIds(c.sourceMessageIds(), loc, src);
+    /**
+     * 校验主题内容安全性和来源消息引用规则。
+     *
+     * @param summary 待校验的主题总结
+     * @param sourceMessages 当前批次按消息ID索引的来源消息
+     * @throws IllegalStateException 主题内容或来源引用不符合规则时抛出
+     */
+    private void validateSummaryBusinessRules(
+            TopicMemorySummaryDTO summary,
+            Map<String, MessageDTO> sourceMessages) {
+        for (int index = 0; index < summary.chunks().size(); index++) {
+            TopicMemorySummaryDTO.TopicChunk chunk = summary.chunks().get(index);
+            String location = "chunks[" + index + "]";
+            validateMeaningfulContent(chunk.topicSummary(), location);
+            validateSensitiveContent(chunk.topicName(), chunk.topicSummary(), location);
+            validateSourceMessageIds(
+                    chunk.sourceMessageIds(), location, sourceMessages);
         }
     }
 
-    private void validateMeaningfulContent(String summary, String loc) {
-        String n = summary.replaceAll("[\\p{P}\\p{S}\\s]+", "").toLowerCase(Locale.ROOT);
-        if (!MEANINGFUL_TEXT_PATTERN.matcher(n).find() || MEANINGLESS_CONTENTS.contains(n))
-            throw invalidSummary(loc + ".topicSummary不能只有寒暄或无意义字符");
-    }
-
-    private void validateSensitiveContent(String name, String summary, String loc) {
-        String c = name + System.lineSeparator() + summary;
-        if (SENSITIVE_VALUE_PATTERN.matcher(c).find() || VERIFICATION_CODE_PATTERN.matcher(c).find()
-                || PRIVATE_KEY_PATTERN.matcher(c).find())
-            throw invalidSummary(loc + "包含密码、Token、验证码或私钥等敏感信息");
-    }
-
-    private void validateSourceMessageIds(List<String> ids, String loc, Map<String, MessageDTO> src) {
-        Set<String> uniq = new LinkedHashSet<>(); boolean hasUser = false;
-        for (String id : ids) {
-            if (!uniq.add(id)) throw invalidSummary(loc + ".sourceMessageIds包含重复ID：" + id);
-            MessageDTO m = src.get(id);
-            if (m == null) throw invalidSummary(loc + ".sourceMessageIds包含当前选中消息之外的ID：" + id);
-            if (ROLE_USER.equals(m.role())) hasUser = true;
+    /**
+     * 校验主题摘要包含有意义的文字或数字。
+     *
+     * @param summary 主题摘要
+     * @param location 当前主题在模型结果中的位置
+     * @throws IllegalStateException 主题摘要只有寒暄或无意义字符时抛出
+     */
+    private void validateMeaningfulContent(String summary, String location) {
+        String normalizedSummary = summary.replaceAll("[\\p{P}\\p{S}\\s]+", "")
+                .toLowerCase(Locale.ROOT);
+        if (!MEANINGFUL_TEXT_PATTERN.matcher(normalizedSummary).find()
+                || MEANINGLESS_CONTENTS.contains(normalizedSummary)) {
+            throw invalidSummary(location + ".topicSummary不能只有寒暄或无意义字符");
         }
-        if (!hasUser) throw invalidSummary(loc + "至少需要关联一条USER消息");
     }
 
+    /**
+     * 校验主题名称和摘要不包含禁止持久化的敏感值。
+     *
+     * @param name 主题名称
+     * @param summary 主题摘要
+     * @param location 当前主题在模型结果中的位置
+     * @throws IllegalStateException 检测到敏感值时抛出
+     */
+    private void validateSensitiveContent(
+            String name, String summary, String location) {
+        String topicContent = name + System.lineSeparator() + summary;
+        if (SENSITIVE_VALUE_PATTERN.matcher(topicContent).find()
+                || VERIFICATION_CODE_PATTERN.matcher(topicContent).find()
+                || PRIVATE_KEY_PATTERN.matcher(topicContent).find()) {
+            throw invalidSummary(location + "包含密码、Token、验证码或私钥等敏感信息");
+        }
+    }
+
+    /**
+     * 校验主题引用的消息真实存在、没有重复且至少包含一条用户消息。
+     *
+     * @param messageIds 主题引用的来源消息ID
+     * @param location 当前主题在模型结果中的位置
+     * @param sourceMessages 当前批次按消息ID索引的来源消息
+     * @throws IllegalStateException 来源消息引用不符合规则时抛出
+     */
+    private void validateSourceMessageIds(
+            List<String> messageIds,
+            String location,
+            Map<String, MessageDTO> sourceMessages) {
+        Set<String> uniqueMessageIds = new LinkedHashSet<>();
+        boolean hasUserMessage = false;
+        for (String messageId : messageIds) {
+            if (!uniqueMessageIds.add(messageId)) {
+                throw invalidSummary(
+                        location + ".sourceMessageIds包含重复ID：" + messageId);
+            }
+            MessageDTO message = sourceMessages.get(messageId);
+            if (message == null) {
+                throw invalidSummary(
+                        location
+                                + ".sourceMessageIds包含当前选中消息之外的ID："
+                                + messageId);
+            }
+            if (ROLE_USER.equals(message.role())) {
+                hasUserMessage = true;
+            }
+        }
+        if (!hasUserMessage) {
+            throw invalidSummary(location + "至少需要关联一条USER消息");
+        }
+    }
+
+    /**
+     * 构造统一格式的主题总结校验异常。
+     *
+     * @param reason 校验失败原因
+     * @return 主题总结校验异常
+     */
     private IllegalStateException invalidSummary(String reason) {
         return new IllegalStateException("主题记忆总结结果校验失败：" + reason);
     }
+
+    /**
+     * 构造包含原始异常的主题总结校验异常。
+     *
+     * @param reason 校验失败原因
+     * @param cause 原始异常
+     * @return 主题总结校验异常
+     */
     private IllegalStateException invalidSummary(String reason, Exception cause) {
         return new IllegalStateException("主题记忆总结结果校验失败：" + reason, cause);
     }
 
-    private List<ModelInputMessage> toModelInputMessages(List<MessageDTO> msgs) {
-        return msgs.stream().map(m -> new ModelInputMessage(
-                m.messageId(), m.role(), m.content(),
-                m.createdAt() == null ? null : m.createdAt().toString())).toList();
+    /**
+     * 将业务消息转换为主题模型需要的最小输入结构。
+     *
+     * @param messages 细筛后的业务消息
+     * @return 主题模型输入消息
+     */
+    private List<ModelInputMessage> toModelInputMessages(List<MessageDTO> messages) {
+        return messages.stream()
+                .map(message -> new ModelInputMessage(
+                        message.messageId(),
+                        message.role(),
+                        message.content(),
+                        message.createdAt() == null
+                                ? null
+                                : message.createdAt().toString()))
+                .toList();
     }
 
-    private String serializeModelInput(List<ModelInputMessage> msgs) {
-        try { return objectMapper.writeValueAsString(msgs); }
-        catch (Exception e) {
-            log.error("主题记忆模型输入序列化失败", e);
-            throw new IllegalStateException("主题记忆模型输入序列化失败", e);
+    /**
+     * 将主题模型输入消息序列化为JSON。
+     *
+     * @param messages 主题模型输入消息
+     * @return 模型输入JSON
+     * @throws IllegalStateException 序列化失败时抛出
+     */
+    private String serializeModelInput(List<ModelInputMessage> messages) {
+        try {
+            return objectMapper.writeValueAsString(messages);
+        } catch (Exception exception) {
+            log.error("主题记忆模型输入序列化失败", exception);
+            throw new IllegalStateException("主题记忆模型输入序列化失败", exception);
         }
     }
 

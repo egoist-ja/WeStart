@@ -33,7 +33,7 @@ public class ToolConfig {
      * 本地工具所在的基础包路径。
      */
     private static final String TOOL_PACKAGE =
-            "com.westart.ai.westart.service.tool";
+            "com.westart.ai.westart.tool";
 
     /**
      * 创建带监听能力的工具向量存储。
